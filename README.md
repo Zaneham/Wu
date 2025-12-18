@@ -1,0 +1,77 @@
+# Wu - Epistemic Media Forensics Toolkit
+
+Detects manipulated media with structured uncertainty output suitable for court admissibility (Daubert standard).
+
+Named after **Chien-Shiung Wu** (1912-1997), who disproved parity conservation and found asymmetries everyone assumed didn't exist.
+
+## Installation
+
+```bash
+pip install wu-forensics
+```
+
+## Quick Start
+
+```bash
+# Analyze a photo
+wu analyze suspicious_photo.jpg
+
+# JSON output
+wu analyze photo.jpg --json
+
+# Batch analysis
+wu batch *.jpg --output reports/
+```
+
+## Python API
+
+```python
+from wu import WuAnalyzer
+
+analyzer = WuAnalyzer()
+result = analyzer.analyze("photo.jpg")
+
+print(result.overall)  # OverallAssessment.NO_ANOMALIES
+print(result.to_json())
+```
+
+## What Wu Detects (Phase 0)
+
+Phase 0 focuses on metadata-only analysis with zero ML dependencies:
+
+- **Device impossibilities**: "iPhone 6 claiming 4K resolution" is physically impossible
+- **Editing software signatures**: Adobe Photoshop, FFmpeg, etc.
+- **AI generation signatures**: DALL-E, Midjourney, Stable Diffusion, Sora, etc.
+- **Timestamp inconsistencies**: Future dates, modification before capture
+- **Stripped metadata**: Intentionally removed EXIF data
+
+## Epistemic States
+
+Unlike binary classifiers, Wu reports structured uncertainty:
+
+| State | Meaning |
+|-------|---------|
+| `CONSISTENT` | No anomalies detected (not proof of authenticity) |
+| `INCONSISTENT` | Clear contradictions found |
+| `SUSPICIOUS` | Anomalies that warrant investigation |
+| `UNCERTAIN` | Insufficient data for analysis |
+
+## Court Admissibility
+
+Wu is designed with the Daubert standard in mind:
+
+1. **Testable methodology**: Every finding is reproducible
+2. **Known error rates**: Confidence levels are explicit
+3. **Peer review**: Academic citations throughout
+4. **General acceptance**: Based on EXIF standards (JEITA CP-3451C)
+
+## References
+
+- Wu, C.S. et al. (1957). Experimental Test of Parity Conservation in Beta Decay. *Physical Review*, 105(4), 1413-1415.
+- Farid, H. (2016). *Photo Forensics*. MIT Press.
+- JEITA CP-3451C (Exif 2.32 specification)
+- Daubert v. Merrell Dow Pharmaceuticals, 509 U.S. 579 (1993)
+
+## License
+
+MIT

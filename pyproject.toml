@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wu-forensics"
+version = "0.1.0"
+description = "Epistemic media forensics toolkit - structured uncertainty for courts"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Zane Hambly" }
+]
+keywords = [
+    "forensics",
+    "deepfake",
+    "detection",
+    "media",
+    "epistemic",
+    "legal",
+    "court",
+    "daubert"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Multimedia :: Video",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "exifread>=3.0",
+    "python-magic-bin>=0.4;sys_platform=='win32'",
+    "python-magic>=0.4;sys_platform!='win32'",
+    "pillow>=10.0",
+    "reportlab>=4.0",
+    "jinja2>=3.1",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+video = [
+    "opencv-python>=4.8",
+    "numpy>=1.24",
+]
+audio = [
+    "librosa>=0.10",
+    "soundfile>=0.12",
+]
+ml = [
+    "onnxruntime>=1.16",
+]
+c2pa = [
+    "c2pa-python>=0.4",
+]
+all = [
+    "wu-forensics[video,audio,ml,c2pa]",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+wu = "wu.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Zaneham/wu"
+Documentation = "https://wu-forensics.org"
+Repository = "https://github.com/Zaneham/wu"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wu"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
