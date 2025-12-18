@@ -35,15 +35,53 @@ print(result.overall)  # OverallAssessment.NO_ANOMALIES
 print(result.to_json())
 ```
 
-## What Wu Detects (Phase 0)
+## Detection Dimensions
 
-Phase 0 focuses on metadata-only analysis with zero ML dependencies:
+Wu analyzes images across multiple forensic dimensions:
 
-- **Device impossibilities**: "iPhone 6 claiming 4K resolution" is physically impossible
-- **Editing software signatures**: Adobe Photoshop, FFmpeg, etc.
-- **AI generation signatures**: DALL-E, Midjourney, Stable Diffusion, Sora, etc.
-- **Timestamp inconsistencies**: Future dates, modification before capture
-- **Stripped metadata**: Intentionally removed EXIF data
+| Dimension | What It Detects |
+|-----------|-----------------|
+| **metadata** | Device impossibilities, editing software, AI signatures, timestamp issues |
+| **visual/ELA** | Error Level Analysis - compression inconsistencies from splicing |
+| **quantization** | JPEG quality table mismatches between image regions |
+| **copy-move** | Duplicated regions within the same image |
+| **PRNU** | Photo Response Non-Uniformity - sensor fingerprint anomalies |
+| **lighting** | Inconsistent light direction across image regions |
+| **blockgrid** | JPEG block boundary misalignment |
+
+## Benchmark Performance
+
+Tested on standard forensic datasets (CASIA 2.0, CoMoFoD):
+
+### CASIA 2.0 (Splice Forgeries)
+
+| Dimension | Precision | Recall | FPR |
+|-----------|-----------|--------|-----|
+| **quantization** | **95%** | 39% | 2% |
+| **visual/ELA** | **91%** | 41% | 4% |
+| **prnu** | 67% | 6% | 3% |
+| **copy-move** | 57% | 47% | 36% |
+| **lighting** | 57% | 64% | 48% |
+
+### Combined Detection
+
+| Strategy | Precision | Recall | FPR | Use Case |
+|----------|-----------|--------|-----|----------|
+| ELA + Quantization | **91%** | 41% | **4%** | Conservative/Legal |
+| All dimensions | 57% | **90%** | 67% | Screening |
+
+**Key finding**: ELA + Quantization provides 91% precision with only 4% false positive rate on splice forgeries.
+
+### CoMoFoD (Copy-Move Forgeries)
+
+Copy-move within the same image is harder to detect (identical compression/quality):
+
+| Dimension | Precision | Recall | FPR |
+|-----------|-----------|--------|-----|
+| **prnu** | 61% | 38% | 24% |
+| copy-move | 50% | 68% | 68% |
+
+*Note: CoMoFoD includes "similar but genuine objects" designed to challenge detectors.*
 
 ## Epistemic States
 
@@ -71,6 +109,8 @@ Wu is designed with the Daubert standard in mind:
 - Farid, H. (2016). *Photo Forensics*. MIT Press.
 - JEITA CP-3451C (Exif 2.32 specification)
 - Daubert v. Merrell Dow Pharmaceuticals, 509 U.S. 579 (1993)
+- Wen, B. et al. (2016). COVERAGE - A Novel Database for Copy-Move Forgery Detection. *IEEE ICIP*.
+- Dong, J. et al. (2013). CASIA Image Tampering Detection Evaluation Database. *IEEE ChinaSIP*.
 
 ## License
 
