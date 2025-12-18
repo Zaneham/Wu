@@ -121,14 +121,15 @@ class CopyMoveAnalyzer:
     - Computational cost scales with image size
     """
 
-    # Block-based parameters
+    # Block-based parameters (empirically tuned on synthetic benchmark)
     BLOCK_SIZE = 16          # Size of blocks for DCT analysis
     DCT_COEFFICIENTS = 16    # Number of DCT coefficients to use per block
-    SIMILARITY_THRESHOLD = 0.995  # Minimum similarity to consider a match (very high = fewer false positives)
+    SIMILARITY_THRESHOLD = 0.9995  # Minimum DCT similarity (high = fewer false positives)
     MIN_CLONE_DISTANCE = 48  # Minimum distance between clone pairs (pixels)
     MIN_CLONE_AREA = 512     # Minimum area to report (pixels²)
     MIN_BLOCK_VARIANCE = 100.0  # Minimum variance to consider block (skip uniform areas)
-    PIXEL_VERIFY_THRESHOLD = 0.92  # Secondary pixel-level verification threshold
+    PIXEL_VERIFY_THRESHOLD = 0.98  # Secondary pixel-level verification threshold
+    MIN_CLONE_REGIONS = 3    # Minimum matching regions to report as forgery (reduces FPR)
 
     # Keypoint parameters
     MIN_KEYPOINT_MATCHES = 10  # Minimum matches to consider significant
@@ -369,7 +370,7 @@ class CopyMoveAnalyzer:
         elapsed_ms = (time.time() - start_time) * 1000
 
         return CopyMoveResult(
-            detected=len(merged_regions) > 0,
+            detected=len(merged_regions) >= self.MIN_CLONE_REGIONS,
             clone_regions=merged_regions,
             method_used="block_dct",
             processing_time_ms=elapsed_ms
