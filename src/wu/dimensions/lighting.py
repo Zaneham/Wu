@@ -137,11 +137,12 @@ class LightingAnalyzer:
     """
 
     REGION_SIZE = 64  # Size of analysis regions
-    INCONSISTENCY_THRESHOLD = 60.0  # Degrees difference to flag (tuned to reduce FPs)
-    MIN_REGION_VARIANCE = 50.0  # Minimum variance for reliable estimation
+    INCONSISTENCY_THRESHOLD = 90.0  # Degrees difference to flag (tuned to reduce FPs)
+    MIN_REGION_VARIANCE = 75.0  # Minimum variance for reliable estimation
     SPECULAR_PERCENTILE = 99  # Percentile for specular detection
-    MIN_INCONSISTENT_REGIONS = 5  # Minimum regions to flag as suspicious
-    MAX_INCONSISTENT_RATIO = 0.15  # If >50% regions inconsistent, likely noise not signal
+    MIN_INCONSISTENT_REGIONS = 12  # Minimum regions to flag as suspicious
+    MAX_INCONSISTENT_RATIO = 0.12
+    MIN_CLUSTER_SIZE = 4  # Minimum cluster size for merged regions
 
     def analyze(self, file_path: str) -> DimensionResult:
         """
@@ -584,7 +585,7 @@ class LightingAnalyzer:
                     used.add(j)
 
             # Only keep significant clusters
-            if len(cluster) >= 2:
+            if len(cluster) >= self.MIN_CLUSTER_SIZE:
                 # Merge into bounding box, use average light
                 min_x = min(r.x for r in cluster)
                 min_y = min(r.y for r in cluster)

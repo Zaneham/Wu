@@ -151,13 +151,14 @@ class MetadataAnalyzer:
             else:
                 suspicious = True
 
-        # Check 5: Stripped metadata (suspicious)
+        # Check 5: Stripped metadata (noted but not suspicious alone)
+        # Many legitimate sources strip metadata (social media, privacy tools, screenshots)
         if self._is_metadata_stripped(metadata):
             evidence.append(Evidence(
                 finding="Metadata appears stripped",
-                explanation="File has minimal metadata, possibly intentionally removed"
+                explanation="File has minimal metadata. Common for screenshots, social media, or privacy-conscious sharing."
             ))
-            suspicious = True
+            # stripped metadata alone is not suspicious
 
         # Check 6: GPS consistency
         gps_results = self._check_gps(metadata)

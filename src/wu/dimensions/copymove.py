@@ -124,12 +124,12 @@ class CopyMoveAnalyzer:
     # Block-based parameters (empirically tuned on synthetic benchmark)
     BLOCK_SIZE = 16          # Size of blocks for DCT analysis
     DCT_COEFFICIENTS = 16    # Number of DCT coefficients to use per block
-    SIMILARITY_THRESHOLD = 0.9995  # Minimum DCT similarity (high = fewer false positives)
+    SIMILARITY_THRESHOLD = 0.9996  # Minimum DCT similarity (high = fewer false positives)
     MIN_CLONE_DISTANCE = 48  # Minimum distance between clone pairs (pixels)
     MIN_CLONE_AREA = 512     # Minimum area to report (pixels²)
-    MIN_BLOCK_VARIANCE = 100.0  # Minimum variance to consider block (skip uniform areas)
-    PIXEL_VERIFY_THRESHOLD = 0.98  # Secondary pixel-level verification threshold
-    MIN_CLONE_REGIONS = 3    # Minimum matching regions to report as forgery (reduces FPR)
+    MIN_BLOCK_VARIANCE = 120.0  # Minimum variance to consider block (skip uniform areas)
+    PIXEL_VERIFY_THRESHOLD = 0.985  # Secondary pixel-level verification threshold
+    MIN_CLONE_REGIONS = 4    # Minimum matching regions to report as forgery (reduces FPR)
 
     # Keypoint parameters
     MIN_KEYPOINT_MATCHES = 10  # Minimum matches to consider significant
@@ -533,7 +533,7 @@ class CopyMoveAnalyzer:
                     cluster.append(r2)
                     used.add(j)
 
-            if len(cluster) >= 3:  # Minimum cluster size
+            if len(cluster) >= 4:  # Minimum cluster size
                 # Merge cluster into single region
                 src_x = min(r.source_x for r in cluster)
                 src_y = min(r.source_y for r in cluster)
