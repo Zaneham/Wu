@@ -1,6 +1,6 @@
 # Wu - Epistemic Media Forensics Toolkit
 
-Detects manipulated media with structured uncertainty output suitable for court admissibility (Daubert standard).
+Detects manipulated media with structured uncertainty output. Hopefully it will be suitable for court admissibility (Daubert standard).
 
 Named after **Chien-Shiung Wu** (1912-1997), who disproved parity conservation and found asymmetries everyone assumed didn't exist.
 
