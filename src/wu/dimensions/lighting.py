@@ -137,9 +137,11 @@ class LightingAnalyzer:
     """
 
     REGION_SIZE = 64  # Size of analysis regions
-    INCONSISTENCY_THRESHOLD = 30.0  # Degrees difference to flag
+    INCONSISTENCY_THRESHOLD = 60.0  # Degrees difference to flag (tuned to reduce FPs)
     MIN_REGION_VARIANCE = 50.0  # Minimum variance for reliable estimation
     SPECULAR_PERCENTILE = 99  # Percentile for specular detection
+    MIN_INCONSISTENT_REGIONS = 5  # Minimum regions to flag as suspicious
+    MAX_INCONSISTENT_RATIO = 0.15  # If >50% regions inconsistent, likely noise not signal
 
     def analyze(self, file_path: str) -> DimensionResult:
         """
@@ -232,53 +234,78 @@ class LightingAnalyzer:
         # Check for inconsistent regions
         if result.inconsistent_regions:
             n_regions = len(result.inconsistent_regions)
-            evidence.append(Evidence(
-                finding=f"Lighting inconsistency: {n_regions} region(s) with different lighting",
-                explanation=(
-                    f"Found {n_regions} region(s) where the estimated light direction "
-                    f"differs significantly from the rest of the image. "
-                    f"Maximum deviation: {result.max_inconsistency_angle:.0f}°"
-                ),
-                citation="Johnson & Farid (2005) - Lighting inconsistency detection"
-            ))
+            n_total = len(result.region_lights) if result.region_lights else 1
+            inconsistent_ratio = n_regions / n_total
 
-            # Add details about inconsistent regions
-            for i, region in enumerate(result.inconsistent_regions[:3]):
-                angle_diff = region.light_vector.angle_to(result.global_light)
+            # Sanity check: if too many regions are "inconsistent", it's noise not signal
+            if inconsistent_ratio > self.MAX_INCONSISTENT_RATIO:
                 evidence.append(Evidence(
-                    finding=(
-                        f"Suspicious region {i+1}: ({region.x}, {region.y}) "
-                        f"{region.width}x{region.height}px"
-                    ),
+                    finding=f"High lighting variance ({n_regions}/{n_total} regions differ)",
                     explanation=(
-                        f"Light direction differs by {angle_diff:.0f}° from image primary. "
-                        f"Region light: azimuth {region.light_vector.azimuth:.0f}°, "
-                        f"elevation {region.light_vector.elevation:.0f}°"
+                        f"Too many regions ({inconsistent_ratio:.0%}) show different lighting. "
+                        f"This suggests unreliable gradient estimation rather than manipulation."
                     )
                 ))
+                return DimensionResult(
+                    dimension="lighting",
+                    state=DimensionState.UNCERTAIN,
+                    confidence=Confidence.LOW,
+                    evidence=evidence,
+                    methodology="Gradient-based lighting estimation"
+                )
 
-            return DimensionResult(
-                dimension="lighting",
-                state=DimensionState.SUSPICIOUS,
-                confidence=Confidence.MEDIUM,
-                evidence=evidence,
-                methodology="Regional lighting direction comparison",
-                raw_data={
-                    "global_light": {
-                        "azimuth": gl.azimuth,
-                        "elevation": gl.elevation,
-                        "confidence": gl.confidence
-                    },
-                    "inconsistent_regions": [
-                        {"x": r.x, "y": r.y, "width": r.width, "height": r.height,
-                         "azimuth": r.light_vector.azimuth,
-                         "elevation": r.light_vector.elevation,
-                         "angle_diff": r.light_vector.angle_to(result.global_light)}
-                        for r in result.inconsistent_regions
-                    ]
-                }
-            )
+            # Require minimum number of inconsistent regions to flag
+            if n_regions < self.MIN_INCONSISTENT_REGIONS:
+                # Not enough regions - fall through to CONSISTENT
+                pass
+            else:
+                evidence.append(Evidence(
+                    finding=f"Lighting inconsistency: {n_regions} region(s) with different lighting",
+                    explanation=(
+                        f"Found {n_regions} region(s) where the estimated light direction "
+                        f"differs significantly from the rest of the image. "
+                        f"Maximum deviation: {result.max_inconsistency_angle:.0f}°"
+                    ),
+                    citation="Johnson & Farid (2005) - Lighting inconsistency detection"
+                ))
 
+                for i, region in enumerate(result.inconsistent_regions[:3]):
+                    angle_diff = region.light_vector.angle_to(result.global_light)
+                    evidence.append(Evidence(
+                        finding=(
+                            f"Suspicious region {i+1}: ({region.x}, {region.y}) "
+                            f"{region.width}x{region.height}px"
+                        ),
+                        explanation=(
+                            f"Light direction differs by {angle_diff:.0f}° from image primary. "
+                            f"Region light: azimuth {region.light_vector.azimuth:.0f}°, "
+                            f"elevation {region.light_vector.elevation:.0f}°"
+                        )
+                    ))
+
+                return DimensionResult(
+                    dimension="lighting",
+                    state=DimensionState.SUSPICIOUS,
+                    confidence=Confidence.MEDIUM,
+                    evidence=evidence,
+                    methodology="Regional lighting direction comparison",
+                    raw_data={
+                        "global_light": {
+                            "azimuth": gl.azimuth,
+                            "elevation": gl.elevation,
+                            "confidence": gl.confidence
+                        },
+                        "inconsistent_regions": [
+                            {"x": r.x, "y": r.y, "width": r.width, "height": r.height,
+                             "azimuth": r.light_vector.azimuth,
+                             "elevation": r.light_vector.elevation,
+                             "angle_diff": r.light_vector.angle_to(result.global_light)}
+                            for r in result.inconsistent_regions
+                        ]
+                    }
+                )
+
+        # Lighting appears consistent
         # Lighting appears consistent
         evidence.append(Evidence(
             finding="Lighting consistent across image",
