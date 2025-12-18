@@ -426,13 +426,10 @@ class AudioAnalyzer:
         # Compute magnitude spectrum
         magnitude = np.abs(stft)
 
-        # Compute spectral flux (frame-to-frame change)
-        # OPTIMIZE: CYTHON - Spectral flux loop
-        flux = np.zeros(magnitude.shape[1] - 1)
-        for i in range(1, magnitude.shape[1]):
-            diff = magnitude[:, i] - magnitude[:, i-1]
-            # Only count positive changes (onset-like)
-            flux[i-1] = np.sum(np.maximum(0, diff))
+        # Compute spectral flux (frame-to-frame change) - VECTORIZED
+        # Replaces loop with single numpy operation
+        diff = magnitude[:, 1:] - magnitude[:, :-1]
+        flux = np.sum(np.maximum(0, diff), axis=0)
 
         # Normalize flux
         if np.max(flux) > 0:

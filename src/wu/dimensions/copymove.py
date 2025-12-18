@@ -249,130 +249,118 @@ class CopyMoveAnalyzer:
         """
         Block-based copy-move detection using DCT.
 
-        PERFORMANCE CRITICAL - This method has O(n²) complexity in the
-        matching phase and would benefit significantly from optimization.
+        Optimized with vectorized operations:
+        - Batch block extraction using stride tricks
+        - Vectorized DCT via matrix operations
+        - Matrix multiplication for all-pairs similarity (replaces O(n²) loop)
         """
         import time
         start_time = time.time()
 
-        # Convert to grayscale
-        # OPTIMIZE: CYTHON - Color conversion loop
+        # Convert to grayscale - vectorized
         gray = np.mean(image, axis=2).astype(np.float32)
-
         height, width = gray.shape
 
-        # Ensure image is large enough
         if height < self.BLOCK_SIZE * 2 or width < self.BLOCK_SIZE * 2:
             return CopyMoveResult(detected=False, method_used="block_dct")
 
-        # Extract overlapping blocks and compute features
-        # OPTIMIZE: C - Block extraction and DCT computation
-        # OPTIMIZE: ASM - DCT inner loop with SIMD (AVX2 for x86, NEON for ARM)
-        blocks = []
-        positions = []
-        raw_blocks = []  # Store raw pixel data for verification
+        step = self.BLOCK_SIZE // 2
 
-        step = self.BLOCK_SIZE // 2  # 50% overlap
+        # Batch extract all blocks using stride tricks (vectorized)
+        n_rows = (height - self.BLOCK_SIZE) // step + 1
+        n_cols = (width - self.BLOCK_SIZE) // step + 1
 
-        for y in range(0, height - self.BLOCK_SIZE, step):
-            for x in range(0, width - self.BLOCK_SIZE, step):
-                block = gray[y:y+self.BLOCK_SIZE, x:x+self.BLOCK_SIZE]
+        # Create view of all blocks without copying
+        shape = (n_rows, n_cols, self.BLOCK_SIZE, self.BLOCK_SIZE)
+        strides = (gray.strides[0] * step, gray.strides[1] * step,
+                   gray.strides[0], gray.strides[1])
+        all_blocks = np.lib.stride_tricks.as_strided(gray, shape=shape, strides=strides)
 
-                # Skip low-variance blocks (uniform areas, random noise edges)
-                # Use native SIMD variance if available
-                if HAS_NATIVE_SIMD:
-                    block_variance = native_simd.variance_f64(block.astype(np.float64))
-                else:
-                    block_variance = np.var(block)
-                if block_variance < self.MIN_BLOCK_VARIANCE:
-                    continue
+        # Reshape to (n_blocks, block_size, block_size)
+        all_blocks = all_blocks.reshape(-1, self.BLOCK_SIZE, self.BLOCK_SIZE).copy()
 
-                # Compute DCT (2D DCT is highly parallelizable)
-                dct_block = fftpack.dct(fftpack.dct(block.T, norm='ortho').T, norm='ortho')
+        # Generate all positions
+        ys, xs = np.mgrid[0:n_rows, 0:n_cols]
+        all_positions = np.stack([xs.ravel() * step, ys.ravel() * step], axis=1)
 
-                # Extract low-frequency coefficients (zigzag order would be better)
-                features = dct_block[:4, :4].flatten()[:self.DCT_COEFFICIENTS]
+        # Compute variance for all blocks at once (vectorized)
+        block_variances = np.var(all_blocks, axis=(1, 2))
 
-                blocks.append(features)
-                positions.append((x, y))
-                raw_blocks.append(block.flatten())
+        # Filter low-variance blocks
+        valid_mask = block_variances >= self.MIN_BLOCK_VARIANCE
+        blocks = all_blocks[valid_mask]
+        positions = all_positions[valid_mask]
 
         if len(blocks) < 2:
             return CopyMoveResult(detected=False, method_used="block_dct")
 
-        blocks = np.array(blocks)
-        raw_blocks = np.array(raw_blocks)
+        # Batch DCT computation - vectorized over all blocks
+        # DCT-II along rows then columns
+        dct_blocks = fftpack.dct(fftpack.dct(blocks, axis=2, norm='ortho'), axis=1, norm='ortho')
 
-        # Normalize features
-        # OPTIMIZE: CYTHON - Normalization loop
-        norms = np.linalg.norm(blocks, axis=1, keepdims=True)
+        # Extract low-frequency features (top-left 4x4)
+        features = dct_blocks[:, :4, :4].reshape(len(blocks), -1)[:, :self.DCT_COEFFICIENTS]
+
+        # Also keep flattened raw blocks for verification
+        raw_blocks = blocks.reshape(len(blocks), -1)
+
+        # Normalize features (vectorized)
+        norms = np.linalg.norm(features, axis=1, keepdims=True)
         norms[norms == 0] = 1
-        blocks_normalized = blocks / norms
+        features_norm = features / norms
 
-        # Also normalize raw blocks for pixel correlation
         raw_norms = np.linalg.norm(raw_blocks, axis=1, keepdims=True)
         raw_norms[raw_norms == 0] = 1
-        raw_normalized = raw_blocks / raw_norms
+        raw_norm = raw_blocks / raw_norms
 
-        # Find similar blocks
-        # OPTIMIZE: C - This is O(n²) and the main bottleneck
-        # OPTIMIZE: ASM - Distance computation with SIMD
-        # Alternative: Use locality-sensitive hashing (LSH) for approximate matching
+        # VECTORIZED SIMILARITY: Matrix multiplication gives all-pairs similarity
+        # This replaces the O(n²) nested loop with optimized BLAS
+        n_blocks = len(features_norm)
+
+        # For large block counts, process in chunks to manage memory
+        chunk_size = min(2000, n_blocks)
         clone_regions = []
 
-        # Sort by first coefficient for faster pruning
-        # OPTIMIZE: C - Sorting and matching
-        indices = np.argsort(blocks[:, 0])
-        blocks_sorted = blocks_normalized[indices]
-        raw_sorted = raw_normalized[indices]
-        positions_sorted = [positions[i] for i in indices]
+        for i_start in range(0, n_blocks, chunk_size):
+            i_end = min(i_start + chunk_size, n_blocks)
 
-        n_blocks = len(blocks_sorted)
+            # Compute similarities for this chunk against all blocks
+            # Shape: (chunk_size, n_blocks)
+            similarities = features_norm[i_start:i_end] @ features_norm.T
 
-        # Compare blocks with similar first coefficients
-        # OPTIMIZE: C/ASM - This nested loop is the critical section
-        for i in range(n_blocks):
-            x1, y1 = positions_sorted[i]
+            # Compute spatial distances (vectorized)
+            pos_chunk = positions[i_start:i_end]  # (chunk_size, 2)
+            # Broadcast to compute all pairwise distances
+            dx = pos_chunk[:, 0:1] - positions[:, 0]  # (chunk_size, n_blocks)
+            dy = pos_chunk[:, 1:2] - positions[:, 1]
+            distances = np.sqrt(dx**2 + dy**2)
 
-            # Only compare with nearby blocks in sorted order
-            for j in range(i + 1, min(i + 100, n_blocks)):  # Limit comparisons
-                # Quick check on first coefficient
-                if abs(blocks_sorted[i, 0] - blocks_sorted[j, 0]) > 0.05:
-                    break
+            # Create mask: high similarity AND sufficient distance AND upper triangle
+            global_i = np.arange(i_start, i_end)[:, None]
+            global_j = np.arange(n_blocks)[None, :]
 
-                x2, y2 = positions_sorted[j]
+            mask = (similarities > self.SIMILARITY_THRESHOLD) & \
+                   (distances > self.MIN_CLONE_DISTANCE) & \
+                   (global_j > global_i)  # Upper triangle only
 
-                # Check minimum distance BEFORE computing full similarity
-                dist = math.sqrt((x2-x1)**2 + (y2-y1)**2)
-                if dist < self.MIN_CLONE_DISTANCE:
-                    continue
+            # Get candidate pairs
+            chunk_indices, j_indices = np.where(mask)
+            i_indices = chunk_indices + i_start
 
-                # DCT similarity check (fast filter)
-                # Use native SIMD dot product if available
-                if HAS_NATIVE_SIMD:
-                    dct_similarity = native_simd.dot_product_f32(
-                        blocks_sorted[i], blocks_sorted[j]
-                    )
-                else:
-                    dct_similarity = np.dot(blocks_sorted[i], blocks_sorted[j])
+            # Verify with pixel correlation (batch)
+            if len(i_indices) > 0:
+                pixel_sims = np.sum(raw_norm[i_indices] * raw_norm[j_indices], axis=1)
+                valid = pixel_sims > self.PIXEL_VERIFY_THRESHOLD
 
-                if dct_similarity > self.SIMILARITY_THRESHOLD:
-                    # VERIFY with pixel-level correlation (reduces false positives)
-                    if HAS_NATIVE_SIMD:
-                        pixel_similarity = native_simd.dot_product_f32(
-                            raw_sorted[i], raw_sorted[j]
-                        )
-                    else:
-                        pixel_similarity = np.dot(raw_sorted[i], raw_sorted[j])
-
-                    if pixel_similarity > self.PIXEL_VERIFY_THRESHOLD:
-                        clone_regions.append(CloneRegion(
-                            source_x=x1, source_y=y1,
-                            target_x=x2, target_y=y2,
-                            width=self.BLOCK_SIZE,
-                            height=self.BLOCK_SIZE,
-                            similarity=pixel_similarity  # Use pixel similarity as final score
-                        ))
+                for idx in np.where(valid)[0]:
+                    i, j = i_indices[idx], j_indices[idx]
+                    clone_regions.append(CloneRegion(
+                        source_x=int(positions[i, 0]), source_y=int(positions[i, 1]),
+                        target_x=int(positions[j, 0]), target_y=int(positions[j, 1]),
+                        width=self.BLOCK_SIZE,
+                        height=self.BLOCK_SIZE,
+                        similarity=float(pixel_sims[idx])
+                    ))
 
         # Merge overlapping detections
         # OPTIMIZE: CYTHON - Region merging

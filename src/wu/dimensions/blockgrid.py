@@ -499,40 +499,47 @@ class BlockGridAnalyzer:
         When an image is saved as JPEG, edited, then re-saved, it creates
         distinctive artifacts in the DCT coefficient histogram.
 
-        OPTIMIZE: C - DCT analysis of many blocks
+        Optimized with batch DCT computation.
         """
         height, width = image.shape
 
         if height < 64 or width < 64:
             return False, None
 
-        # Sample some blocks and analyze DCT coefficients
-        # OPTIMIZE: ASM - Batch DCT computation
         block_size = 8
-        dct_coeffs = []
 
-        for y in range(0, height - block_size, block_size):
-            for x in range(0, width - block_size, block_size):
-                block = image[y:y+block_size, x:x+block_size]
+        # Batch extract all 8x8 blocks using stride tricks
+        n_rows = height // block_size
+        n_cols = width // block_size
 
-                # Compute DCT
-                dct = fftpack.dct(fftpack.dct(block.T, norm='ortho').T, norm='ortho')
+        # Limit to avoid memory issues
+        max_blocks = 50000 // 63  # 63 non-DC coefficients per block
+        if n_rows * n_cols > max_blocks:
+            # Sample a subset
+            n_rows = min(n_rows, int(np.sqrt(max_blocks)))
+            n_cols = min(n_cols, int(np.sqrt(max_blocks)))
 
-                # Collect non-DC coefficients
-                for i in range(block_size):
-                    for j in range(block_size):
-                        if i != 0 or j != 0:
-                            dct_coeffs.append(dct[i, j])
+        # Extract blocks using stride tricks (vectorized)
+        trimmed = image[:n_rows * block_size, :n_cols * block_size]
+        shape = (n_rows, n_cols, block_size, block_size)
+        strides = (trimmed.strides[0] * block_size, trimmed.strides[1] * block_size,
+                   trimmed.strides[0], trimmed.strides[1])
+        blocks = np.lib.stride_tricks.as_strided(trimmed, shape=shape, strides=strides)
+        blocks = blocks.reshape(-1, block_size, block_size).copy()
 
-                if len(dct_coeffs) > 50000:  # Limit samples
-                    break
-            if len(dct_coeffs) > 50000:
-                break
+        if len(blocks) < 16:
+            return False, None
+
+        # Batch DCT - vectorized over all blocks at once
+        dct_blocks = fftpack.dct(fftpack.dct(blocks, axis=2, norm='ortho'), axis=1, norm='ortho')
+
+        # Extract non-DC coefficients (all except [0,0]) - vectorized
+        # Flatten each block and skip first element (DC)
+        dct_flat = dct_blocks.reshape(len(blocks), -1)[:, 1:]  # Skip DC
+        dct_coeffs = dct_flat.ravel()
 
         if len(dct_coeffs) < 1000:
             return False, None
-
-        dct_coeffs = np.array(dct_coeffs)
 
         # Analyze histogram for double compression artifacts
         # Double compression creates periodic peaks in the histogram
