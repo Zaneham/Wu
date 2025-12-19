@@ -112,6 +112,10 @@ Wu is designed with the Daubert standard in mind:
 - Wen, B. et al. (2016). COVERAGE - A Novel Database for Copy-Move Forgery Detection. *IEEE ICIP*.
 - Dong, J. et al. (2013). CASIA Image Tampering Detection Evaluation Database. *IEEE ChinaSIP*.
 
+## AI Usage
+
+This project uses Claude (Anthropic) to assist with summarizing test results across 700+ test cases. All code, forensic methodology, and documentation are human-authored.
+
 ## License
 
 MIT
