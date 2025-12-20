@@ -27,6 +27,7 @@ wheels/
 # PyInstaller
 *.manifest
 *.spec
+!wu.spec  # Keep wu.spec for building
 
 # Installer logs
 pip-log.txt

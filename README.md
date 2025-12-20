@@ -6,11 +6,30 @@ Developed by **Zane Hambly**, the toolkit provides a systematic framework for th
 
 ## Installation
 
+### Option 1: Python Package (Recommended for Development)
+
 ```bash
 pip install wu-forensics
 ```
 
+### Option 2: Standalone Executable (No Python Required)
+
+Download the pre-built `wu.exe` executable from the [releases](https://github.com/Zaneham/wu/releases) page. This standalone executable includes all dependencies and can be used without installing Python.
+
+**Building from Source:**
+```bash
+# Install PyInstaller
+pip install pyinstaller
+
+# Build the executable
+python build_cli.py
+```
+
+The executable will be created at `dist/wu.exe`. See [CLI_BUILD.md](CLI_BUILD.md) for detailed build instructions.
+
 ## Quick Start
+
+### Using the Python Package
 
 ```bash
 # Analyse a photo or video file
@@ -22,6 +41,34 @@ wu analyze evidence.jpg --json
 # Perform batch analysis on a directory of files
 wu batch ./evidence/ --output reports/
 ```
+
+### Using the Standalone Executable
+
+```bash
+# Same commands work with the executable
+wu.exe analyze suspicious_media.mp4
+wu.exe analyze evidence.jpg --json
+wu.exe batch ./evidence/ --output reports/
+
+# Generate a court-ready PDF report
+wu.exe report evidence.jpg -o report.pdf
+
+# List supported file formats
+wu.exe formats
+
+# Verify installation
+wu.exe verify
+```
+
+### CLI Commands
+
+- `wu analyze <file>` - Analyze a single media file
+- `wu batch <files...>` - Analyze multiple files
+- `wu report <file>` - Generate a PDF forensic report
+- `wu formats` - List supported file formats
+- `wu verify` - Verify installation against reference vectors
+
+For detailed CLI options, run `wu --help` or `wu analyze --help`.
 
 ## Detection Dimensions
 
