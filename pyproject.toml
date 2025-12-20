@@ -75,9 +75,37 @@ Homepage = "https://github.com/Zaneham/wu"
 Documentation = "https://wu-forensics.org"
 Repository = "https://github.com/Zaneham/wu"
 
+[tool.hatch.build]
+ignore-vcs-ignore = true
+
 [tool.hatch.build.targets.wheel]
+ignore-vcs-ignore = true
 packages = ["src/wu"]
 
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/wu/native/wu_simd.dll" = "wu/native/wu_simd.dll"
+
+
+
+[tool.hatch.build.targets.sdist]
+ignore-vcs-ignore = true
+include = [
+
+    "src/wu/native/*.c",
+    "src/wu/native/*.h",
+    "src/wu/native/*.dll",
+    "src/wu/native/*.so",
+    "src/wu/native/*.dylib",
+    "src/wu/native/assembly",
+]
+
+
+
+[tool.hatch.build.targets.sdist.force-include]
+"src/wu/native/wu_simd.dll" = "src/wu/native/wu_simd.dll"
+
 [tool.pytest.ini_options]
+
 testpaths = ["tests"]
 pythonpath = ["src"]
