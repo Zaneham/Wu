@@ -221,7 +221,7 @@ class MetadataAnalyzer:
                     metadata["_image_height"] = img.height
                     metadata["_image_format"] = img.format
 
-                    exif_data = img._getexif()
+                    exif_data = img.getexif()
                     if exif_data:
                         for tag_id, value in exif_data.items():
                             tag = TAGS.get(tag_id, tag_id)

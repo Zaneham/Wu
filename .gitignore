@@ -67,3 +67,6 @@ Thumbs.db
 
 # Project specific
 *.dll
+
+# Internal/Private documents (IP protection)
+OPTIMISATION_PLAN.md

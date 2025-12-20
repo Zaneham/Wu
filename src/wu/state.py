@@ -210,4 +210,16 @@ class WuAnalysis:
 
     def to_json(self) -> str:
         import json
-        return json.dumps(self.to_dict(), indent=2)
+
+        class WuEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if hasattr(obj, "tolist"):
+                    return obj.tolist()
+                if hasattr(obj, "item"):
+                    return obj.item()
+                if hasattr(obj, "value") and hasattr(obj, "__enum__"):
+                    return obj.value
+                return str(obj)
+
+        return json.dumps(self.to_dict(), indent=2, cls=WuEncoder)
+

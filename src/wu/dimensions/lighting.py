@@ -1,5 +1,5 @@
 """
-Lighting direction consistency forensic analysis.
+Lighting direction consistency forensic analysis. Zanes notes:
 
 Detects manipulation by analyzing whether lighting is consistent across
 different regions of an image. Inconsistent lighting suggests compositing.
@@ -27,7 +27,7 @@ References:
     Johnson, M.K. & Farid, H. (2005). Exposing Digital Forgeries by
         Detecting Inconsistencies in Lighting. ACM Multimedia and
         Security Workshop.
-    Kee, E., O'Brien, J.F., & Farid, H. (2013). Exposing Photo Manipulation
+    Kee, E., O'Brien, J.F. & Farid, H. (2013). Exposing Photo Manipulation
         with Inconsistent Shadows. ACM Transactions on Graphics.
     Riess, C. & Angelopoulou, E. (2010). Scene Illumination as an Indicator
         of Image Manipulation. Information Hiding.
@@ -307,7 +307,6 @@ class LightingAnalyzer:
                 )
 
         # Lighting appears consistent
-        # Lighting appears consistent
         evidence.append(Evidence(
             finding="Lighting consistent across image",
             explanation=(
@@ -340,7 +339,7 @@ class LightingAnalyzer:
         height, width = gray.shape
 
         # Compute image gradients
-        # OPTIMIZE: ASM - Sobel convolution with SIMD
+        # Use native SIMD when available for efficiency
         gx, gy = self._compute_gradients(gray)
 
         # Estimate global light direction
@@ -426,7 +425,7 @@ class LightingAnalyzer:
 
         Uses native SIMD when available for accelerated computation.
         """
-        # Use native SIMD implementation if available
+        # Use native SIMD implementation (C/ASM optimized)
         if HAS_NATIVE_SIMD:
             return native_simd.sobel_3x3(gray)
 

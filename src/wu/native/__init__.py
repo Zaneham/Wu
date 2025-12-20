@@ -8,9 +8,7 @@ computationally intensive operations.
 Usage:
     from wu.native import simd
 
-    # Check SIMD capabilities
-    caps = simd.get_simd_caps()
-    print(f"AVX2: {bool(caps & 4)}, NEON: {bool(caps & 16)}")
+
 
     # Use optimized functions
     result = simd.dot_product(array1, array2)

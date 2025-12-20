@@ -59,6 +59,12 @@ except ImportError:
 
 from ..state import DimensionResult, DimensionState, Confidence, Evidence
 
+try:
+    from wu.native import simd as native_simd
+    HAS_NATIVE_SIMD = native_simd.is_available()
+except ImportError:
+    HAS_NATIVE_SIMD = False
+
 
 @dataclass
 class PRNUFingerprint:
@@ -396,6 +402,78 @@ class PRNUAnalyzer:
 
         OPTIMIZE: ASM - FFT and correlation with SIMD intrinsics
         """
+        # --- NATIVE OPTIMIZATION IF AVAILABLE ---
+        if HAS_NATIVE_SIMD:
+            # 1. Compute stats using AVX2
+            mean_n, var_n = native_simd.mean_variance_asm(noise)
+            mean_f, var_f = native_simd.mean_variance_asm(fingerprint)
+            
+            # 2. Normalize
+            # Note: We still do element-wise op in Python unless we add vector-scalar-op to ASM
+            # But we saved the reduction time.
+            noise_norm = noise - mean_n
+            fp_norm = fingerprint - mean_f
+
+            noise_std = math.sqrt(var_n)
+            fp_std = math.sqrt(var_f)
+
+            if noise_std == 0 or fp_std == 0:
+                return 0.0, 1.0
+
+            noise_norm /= noise_std
+            fp_norm /= fp_std
+            
+            # 3. FFT (Still Python/NumPy for now)
+            fft_noise = np.fft.fft2(noise_norm)
+            fft_fp = np.fft.fft2(fp_norm)
+            correlation = np.fft.ifft2(fft_noise * np.conj(fft_fp)).real
+
+            # 4. Find Peak using ASM
+            # Flatten for scanning
+            peak_val, peak_flat_idx = native_simd.find_peak_asm(correlation)
+            
+            # Convert flat index to (y, x)
+            h, w = correlation.shape
+            py, px = divmod(int(peak_flat_idx), w)
+            peak_idx = (py, px)
+            
+            # 5. Compute Energy
+            # Total energy = sum(x^2)
+            total_energy = native_simd.correlation_sum_asm(correlation.ravel(), correlation.ravel())
+            
+            # Subtract peak neighborhood energy (11x11)
+            # Brute force subtraction is faster than creating mask array
+            peak_energy_sum = 0.0
+            y_start = max(0, py - 5)
+            y_end = min(h, py + 6)
+            x_start = max(0, px - 5)
+            x_end = min(w, px + 6)
+            
+            # Create a view of the neighborhood (fast)
+            neighborhood = correlation[y_start:y_end, x_start:x_end]
+            peak_energy_sum = np.sum(neighborhood**2)
+            
+            noise_energy_sum = total_energy - peak_energy_sum
+            
+            # Count pixels
+            total_pixels = w * h
+            peak_pixels = (y_end - y_start) * (x_end - x_start)
+            noise_pixels = total_pixels - peak_pixels
+            
+            if noise_pixels > 0:
+                noise_energy_mean = noise_energy_sum / noise_pixels
+            else:
+                noise_energy_mean = 0.0
+
+            if noise_energy_mean <= 1e-15: # Avoid div by zero
+                 pce = float('inf') if peak_val != 0 else 0
+            else:
+                 pce = (peak_val**2) / noise_energy_mean
+                 
+            p_value = math.exp(-pce / 2) if pce < 100 else 0.0
+            return pce, p_value
+
+        # --- FALLBACK PYTHON IMPLEMENTATION ---
         # Normalize both signals
         # OPTIMIZE: CYTHON - Normalization
         noise_norm = noise - np.mean(noise)

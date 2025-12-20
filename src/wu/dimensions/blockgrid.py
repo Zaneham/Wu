@@ -414,13 +414,21 @@ class BlockGridAnalyzer:
         best_score = -float('inf')
         scores = np.zeros((8, 8))
 
-        for x_off in range(8):
-            for y_off in range(8):
-                score = self._compute_blockiness(image, x_off, y_off)
-                scores[y_off, x_off] = score
-                if score > best_score:
-                    best_score = score
-                    best_offset = (x_off, y_off)
+        if HAS_NATIVE_SIMD and hasattr(native_simd, 'blockiness_all_offsets_asm'):
+            # Assembly computes all 64 offsets at once (5x faster)
+            best_idx, scores = native_simd.blockiness_all_offsets_asm(
+                image, self.BLOCK_SIZE
+            )
+            best_offset = (best_idx % 8, best_idx // 8)
+        else:
+            # Python fallback
+            for x_off in range(8):
+                for y_off in range(8):
+                    score = self._compute_blockiness(image, x_off, y_off)
+                    scores[y_off, x_off] = score
+                    if score > best_score:
+                        best_score = score
+                        best_offset = (x_off, y_off)
 
         # Compute confidence based on score distribution
         scores_flat = scores.flatten()

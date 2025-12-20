@@ -222,6 +222,9 @@ if HAS_CLICK:
 
         if output_json or output:
             json_output = result.to_json()
+
+
+
             if output:
                 Path(output).write_text(json_output)
                 click.echo(f"Analysis written to {output}")
@@ -379,7 +382,14 @@ if HAS_CLICK:
 
     def main():
         """Entry point for CLI."""
+        # Ensure UTF-8 output even on Windows
+        if hasattr(sys.stdout, "reconfigure"):
+            try:
+                sys.stdout.reconfigure(encoding="utf-8")
+            except Exception:
+                pass
         cli()
+
 
 else:
     def main():

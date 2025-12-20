@@ -25,7 +25,7 @@ Grid frequency data sources:
     UK: National Grid ESO (https://data.nationalgrideso.com/)
     EU: ENTSO-E Transparency Platform
     US: Regional operators (ERCOT, CAISO, etc.) - patchy availability
-    NZ: Transpower (check current availability)
+    NZ: Transpower (check current availability I may have to OIA)
 """
 
 import math

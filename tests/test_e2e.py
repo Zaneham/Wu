@@ -2,13 +2,15 @@
 End-to-end tests for Wu forensic analysis.
 
 Tests the complete pipeline from file input through all analyzers to final output.
-Includes realistic manipulation scenarios and full JSON output validation.
+Includes realistic manipulation scenarios and full JSON output validation. - ZH 19/12/2025
 """
 
 import json
+import os
 import pytest
 import subprocess
 import sys
+
 from pathlib import Path
 
 try:
@@ -468,10 +470,12 @@ class TestCLI:
     def test_cli_basic_analysis(self, clean_jpeg):
         """CLI basic analysis should run without errors."""
         result = subprocess.run(
-            [sys.executable, "-m", "wu.cli", "analyze", clean_jpeg],
+            [sys.executable, "-m", "wu.cli", "analyze", str(clean_jpeg)],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
+
 
         # Should complete (exit code 0 = no anomalies, 1 = anomalies, 2 = inconsistencies)
         assert result.returncode in [0, 1, 2]
@@ -481,11 +485,15 @@ class TestCLI:
         result = subprocess.run(
             [sys.executable, "-m", "wu.cli", "analyze", clean_jpeg, "--json"],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
-
-        # Parse JSON output
         parsed = json.loads(result.stdout)
+
+
+
+
+
 
         assert "file_path" in parsed
         assert "overall_assessment" in parsed
@@ -495,8 +503,10 @@ class TestCLI:
         result = subprocess.run(
             [sys.executable, "-m", "wu.cli", "analyze", clean_jpeg, "-v"],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
+
 
         # Verbose output should contain dimension details
         assert "DIMENSION" in result.stdout or "State:" in result.stdout or \
@@ -510,8 +520,10 @@ class TestCLI:
             [sys.executable, "-m", "wu.cli", "analyze", clean_jpeg,
              "-o", str(output_file)],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
+
 
         # File should be created
         assert output_file.exists()
@@ -528,8 +540,10 @@ class TestCLI:
              "--thumbnail", "--shadows", "--perspective", "--quantization",
              "--json"],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
+
 
         parsed = json.loads(result.stdout)
         dims = parsed["dimensions"]
@@ -547,8 +561,10 @@ class TestCLI:
         result = subprocess.run(
             [sys.executable, "-m", "wu.cli", "analyze", str(missing_file)],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
+
 
         # Should exit with error
         assert result.returncode != 0 or "not found" in result.stderr.lower() or \
@@ -563,8 +579,10 @@ class TestCLIBatch:
         result = subprocess.run(
             [sys.executable, "-m", "wu.cli", "batch", clean_jpeg, clean_png],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
+
 
         # Should mention both files or show count
         assert "2" in result.stdout or "Analyzed" in result.stdout
@@ -577,8 +595,10 @@ class TestCLIBatch:
             [sys.executable, "-m", "wu.cli", "batch", clean_jpeg,
              "-o", str(output_dir)],
             capture_output=True,
-            text=True
+            text=True,
+            env={**os.environ, "PYTHONPATH": "src"}
         )
+
 
         # Output directory should be created
         assert output_dir.exists()

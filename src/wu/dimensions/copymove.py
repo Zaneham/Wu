@@ -1,5 +1,5 @@
 """
-Copy-Move (Clone) forensic detection.
+Copy-Move (Clone) forensic detection. Zanes Notes:
 
 Detects regions of an image that have been copied and pasted within
 the same image - a common manipulation technique for removing objects
@@ -133,7 +133,7 @@ class CopyMoveAnalyzer:
 
     # Keypoint parameters
     MIN_KEYPOINT_MATCHES = 10  # Minimum matches to consider significant
-    MATCH_RATIO_THRESHOLD = 0.75  # Lowe's ratio test threshold
+    MATCH_RATIO_THRESHOLD = 0.75  # Lowe's ratio test threshold, see reference material
 
     def analyze(self, file_path: str) -> DimensionResult:
         """
@@ -314,54 +314,84 @@ class CopyMoveAnalyzer:
         raw_norms[raw_norms == 0] = 1
         raw_norm = raw_blocks / raw_norms
 
-        # VECTORIZED SIMILARITY: Matrix multiplication gives all-pairs similarity
-        # This replaces the O(n²) nested loop with optimized BLAS
+        # VECTORIZED SIMILARITY: Use Native Assembly if available
+        # This replaces the O(n²) nested loop with optimized SIMD batch search
         n_blocks = len(features_norm)
-
-        # For large block counts, process in chunks to manage memory
-        chunk_size = min(2000, n_blocks)
         clone_regions = []
 
-        for i_start in range(0, n_blocks, chunk_size):
-            i_end = min(i_start + chunk_size, n_blocks)
-
-            # Compute similarities for this chunk against all blocks
-            # Shape: (chunk_size, n_blocks)
-            similarities = features_norm[i_start:i_end] @ features_norm.T
-
-            # Compute spatial distances (vectorized)
-            pos_chunk = positions[i_start:i_end]  # (chunk_size, 2)
-            # Broadcast to compute all pairwise distances
-            dx = pos_chunk[:, 0:1] - positions[:, 0]  # (chunk_size, n_blocks)
-            dy = pos_chunk[:, 1:2] - positions[:, 1]
-            distances = np.sqrt(dx**2 + dy**2)
-
-            # Create mask: high similarity AND sufficient distance AND upper triangle
-            global_i = np.arange(i_start, i_end)[:, None]
-            global_j = np.arange(n_blocks)[None, :]
-
-            mask = (similarities > self.SIMILARITY_THRESHOLD) & \
-                   (distances > self.MIN_CLONE_DISTANCE) & \
-                   (global_j > global_i)  # Upper triangle only
-
-            # Get candidate pairs
-            chunk_indices, j_indices = np.where(mask)
-            i_indices = chunk_indices + i_start
-
-            # Verify with pixel correlation (batch)
-            if len(i_indices) > 0:
-                pixel_sims = np.sum(raw_norm[i_indices] * raw_norm[j_indices], axis=1)
-                valid = pixel_sims > self.PIXEL_VERIFY_THRESHOLD
-
-                for idx in np.where(valid)[0]:
-                    i, j = i_indices[idx], j_indices[idx]
-                    clone_regions.append(CloneRegion(
-                        source_x=int(positions[i, 0]), source_y=int(positions[i, 1]),
-                        target_x=int(positions[j, 0]), target_y=int(positions[j, 1]),
-                        width=self.BLOCK_SIZE,
-                        height=self.BLOCK_SIZE,
-                        similarity=float(pixel_sims[idx])
-                    ))
+        if HAS_NATIVE_SIMD:
+             # Fast assembly path
+             matches = native_simd.find_similar_blocks_asm(
+                 features_norm, 
+                 positions.astype(np.int32), 
+                 threshold=self.SIMILARITY_THRESHOLD, 
+                 min_distance=self.MIN_CLONE_DISTANCE
+             )
+             
+             if len(matches) > 0:
+                 i_indices = matches[:, 0].astype(int)
+                 j_indices = matches[:, 1].astype(int)
+                 sims = matches[:, 2]
+                 
+                 # Verify with pixel correlation (batch)
+                 # Note: raw_norm must be available
+                 pixel_sims = np.sum(raw_norm[i_indices] * raw_norm[j_indices], axis=1)
+                 valid = pixel_sims > self.PIXEL_VERIFY_THRESHOLD
+                 
+                 for idx in np.where(valid)[0]:
+                     i, j = i_indices[idx], j_indices[idx]
+                     clone_regions.append(CloneRegion(
+                         source_x=int(positions[i, 0]), source_y=int(positions[i, 1]),
+                         target_x=int(positions[j, 0]), target_y=int(positions[j, 1]),
+                         width=self.BLOCK_SIZE,
+                         height=self.BLOCK_SIZE,
+                         similarity=float(pixel_sims[idx])
+                     ))
+        else:
+            # Slow Python/Numpy path
+            # For large block counts, process in chunks to manage memory
+            chunk_size = min(2000, n_blocks)
+    
+            for i_start in range(0, n_blocks, chunk_size):
+                i_end = min(i_start + chunk_size, n_blocks)
+    
+                # Compute similarities for this chunk against all blocks
+                # Shape: (chunk_size, n_blocks)
+                similarities = features_norm[i_start:i_end] @ features_norm.T
+    
+                # Compute spatial distances (vectorized)
+                pos_chunk = positions[i_start:i_end]  # (chunk_size, 2)
+                # Broadcast to compute all pairwise distances
+                dx = pos_chunk[:, 0:1] - positions[:, 0]  # (chunk_size, n_blocks)
+                dy = pos_chunk[:, 1:2] - positions[:, 1]
+                distances = np.sqrt(dx**2 + dy**2)
+    
+                # Create mask: high similarity AND sufficient distance AND upper triangle
+                global_i = np.arange(i_start, i_end)[:, None]
+                global_j = np.arange(n_blocks)[None, :]
+    
+                mask = (similarities > self.SIMILARITY_THRESHOLD) & \
+                       (distances > self.MIN_CLONE_DISTANCE) & \
+                       (global_j > global_i)  # Upper triangle only
+    
+                # Get candidate pairs
+                chunk_indices, j_indices = np.where(mask)
+                i_indices = chunk_indices + i_start
+    
+                # Verify with pixel correlation (batch)
+                if len(i_indices) > 0:
+                    pixel_sims = np.sum(raw_norm[i_indices] * raw_norm[j_indices], axis=1)
+                    valid = pixel_sims > self.PIXEL_VERIFY_THRESHOLD
+    
+                    for idx in np.where(valid)[0]:
+                        i, j = i_indices[idx], j_indices[idx]
+                        clone_regions.append(CloneRegion(
+                            source_x=int(positions[i, 0]), source_y=int(positions[i, 1]),
+                            target_x=int(positions[j, 0]), target_y=int(positions[j, 1]),
+                            width=self.BLOCK_SIZE,
+                            height=self.BLOCK_SIZE,
+                            similarity=float(pixel_sims[idx])
+                        ))
 
         # Merge overlapping detections
         # OPTIMIZE: CYTHON - Region merging
@@ -533,7 +563,7 @@ class CopyMoveAnalyzer:
                     cluster.append(r2)
                     used.add(j)
 
-            if len(cluster) >= 4:  # Minimum cluster size
+            if len(cluster) >= 3:  # Minimum cluster size
                 # Merge cluster into single region
                 src_x = min(r.source_x for r in cluster)
                 src_y = min(r.source_y for r in cluster)
