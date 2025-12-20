@@ -8,18 +8,56 @@ Developed by **Zane Hambly**, the toolkit provides a systematic framework for th
 
 ### Option 1: Python Package (Recommended for Development)
 
+**Requirements:** Python 3.10 or higher
+
 ```bash
+# Basic installation
 pip install wu-forensics
+
+# With optional features (video, audio, ML, C2PA)
+pip install "wu-forensics[all]"
+
+# Or install specific features
+pip install "wu-forensics[video,audio]"  # Video and audio analysis
+pip install "wu-forensics[c2pa]"         # C2PA credential verification
+```
+
+**Verify installation:**
+```bash
+wu --version
+wu --help
 ```
 
 ### Option 2: Standalone Executable (No Python Required)
 
-Download the pre-built `wu.exe` executable from the [releases](https://github.com/Zaneham/wu/releases) page. This standalone executable includes all dependencies and can be used without installing Python.
+**For Windows users who don't want to install Python:**
 
-**Building from Source:**
+1. **Download:** Go to the [Releases](https://github.com/Zaneham/wu/releases) page
+2. **Download:** `wu.exe` from the latest release
+3. **Place:** Put `wu.exe` anywhere (e.g., `C:\tools\wu.exe` or add to PATH)
+4. **Run:** Open Command Prompt and run:
+   ```bash
+   wu.exe --help
+   ```
+
+**No Python installation needed!** The executable includes everything.
+
+**Optional: Add to PATH**
+To use `wu` from anywhere, add the directory containing `wu.exe` to your system PATH:
+1. Copy `wu.exe` to a permanent location (e.g., `C:\tools\`)
+2. Add that directory to your Windows PATH environment variable
+3. Restart your terminal
+4. Now you can run `wu` from any directory!
+
+**Building the Executable from Source:**
+If you want to build it yourself:
 ```bash
 # Install PyInstaller
 pip install pyinstaller
+
+# Clone the repository
+git clone https://github.com/Zaneham/wu.git
+cd wu
 
 # Build the executable
 python build_cli.py
