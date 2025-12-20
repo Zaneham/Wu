@@ -6,6 +6,10 @@ Developed by **Zane Hambly**.
 
 Named after **Chien-Shiung Wu** (1912-1997), who disproved parity conservation and found asymmetries everyone assumed didn't exist.
 
+notes: 
+video processing is actively being worked on. 
+Wu does not explicitly target AI generated content however this tool does pick up AI generated images by proxy. AI generated or augmented videos and photos can leave traces. Please see the limitations and methodology documents for more information.
+
 
 ## Installation
 
@@ -100,7 +104,7 @@ Unlike binary classifiers, Wu reports structured uncertainty:
 | `SUSPICIOUS` | Anomalies that warrant investigation |
 | `UNCERTAIN` | Insufficient data for analysis |
 
-## Court Admissibility
+## Court Admissibility - in progress.
 
 Wu is designed with the Daubert standard in mind:
 
