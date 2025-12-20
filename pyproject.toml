@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wu-forensics"
-version = "1.0.2"
+version = "1.1.0"
 description = "Epistemic media forensics toolkit - structured uncertainty for courts"
 readme = "README.md"
 license = "MIT"
