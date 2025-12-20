@@ -44,8 +44,9 @@ from .dimensions import (
     QuantizationAnalyzer,
     AIGenerationAnalyzer,
 )
+from .video.analyzer import VideoAnalyzer
 
-__version__ = "0.1.0"
+__version__ = "1.1.0"
 
 # Default number of workers for parallel execution
 DEFAULT_MAX_WORKERS = min(8, (os.cpu_count() or 4))
@@ -93,6 +94,7 @@ class WuAnalyzer:
         enable_perspective: bool = False,  # Disabled by default (computationally expensive)
         enable_quantization: bool = False,  # Disabled by default (JPEG-specific)
         enable_aigen: bool = False,  # Disabled by default (AI generation indicators)
+        enable_video: bool = True,  # Enabled by default for video files
         parallel: bool = True,  # Enable parallel dimension execution
         max_workers: Optional[int] = None,  # Max parallel workers (None = auto)
     ):
@@ -150,6 +152,7 @@ class WuAnalyzer:
         self._perspective_analyzer = PerspectiveAnalyzer() if enable_perspective else None
         self._quantization_analyzer = QuantizationAnalyzer() if enable_quantization else None
         self._aigen_analyzer = AIGenerationAnalyzer() if enable_aigen else None
+        self._video_analyzer = VideoAnalyzer() if enable_video else None
 
         # Build list of enabled analyzers for parallel execution
         self._analyzer_config = self._build_analyzer_config()
@@ -171,6 +174,7 @@ class WuAnalyzer:
             "perspective": self._perspective_analyzer,
             "quantization": self._quantization_analyzer,
             "aigen": self._aigen_analyzer,
+            "video": self._video_analyzer,
         }
         return [(name, analyzer) for name, analyzer in analyzers.items() if analyzer]
 
@@ -211,6 +215,72 @@ class WuAnalyzer:
             results = self._analyze_parallel(str(path))
         else:
             results = self._analyze_sequential(str(path))
+
+        # --- Phase 4: Cross-Modal Integration ---
+        # If it's a video, we also want to run image analyzers on extracted frames and audio analyzer on bit-exact stream
+        is_video = path.suffix.lower() in [".mp4", ".mov", ".avi", ".mkv", ".webm"]
+        if is_video and self._video_analyzer:
+            try:
+                import tempfile
+                from .state import Evidence
+                
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    # 1. Image Forensics on Decoded Frames
+                    frame_count = 0
+                    max_frames = 5
+                    visual_tools = []
+                    if self._visual_analyzer: visual_tools.append(self._visual_analyzer)
+                    if self._copymove_analyzer: visual_tools.append(self._copymove_analyzer)
+                    if self._prnu_analyzer: visual_tools.append(self._prnu_analyzer)
+                    
+                    for i, frame in enumerate(self._video_analyzer.iter_frames(str(path))):
+                        if frame_count >= max_frames: break
+                        frame_path = os.path.join(tmpdir, f"frame_{i}.png")
+                        from PIL import Image
+                        Image.fromarray(frame).save(frame_path)
+                        
+                        for tool in visual_tools:
+                            tool_result = tool.analyze(frame_path)
+                            if tool_result.state in [DimensionState.SUSPICIOUS, DimensionState.INCONSISTENT]:
+                                if "video" in results:
+                                    video_res = results["video"]
+                                    video_res.state = DimensionState.SUSPICIOUS
+                                    video_res.evidence.append(Evidence(
+                                        finding=f"Visual Anomaly in Frame {i} ({tool_result.dimension})",
+                                        explanation=tool_result.evidence[0].explanation if tool_result.evidence else "Anomaly detected in pixel data"
+                                    ))
+                        frame_count += 1
+
+                    # 2. Hybrid Audio Forensics (Native Extraction -> External Decode)
+                    if self._audio_analyzer:
+                        # Locate audio trak natively
+                        audio_samples = list(self._video_analyzer.iter_audio_samples(str(path)))
+                        if audio_samples:
+                            # Write raw samples to a temporary file for AudioAnalyzer
+                            # Note: We append them, though the analyzer might need a proper header
+                            # For MP3/AAC/ADTS, simple concatenation often works for pydub/ffmpeg
+                            raw_audio_path = os.path.join(tmpdir, "extracted_audio.dat")
+                            with open(raw_audio_path, "wb") as af:
+                                for sample in audio_samples:
+                                    af.write(sample)
+                            
+                            audio_result = self._audio_analyzer.analyze(raw_audio_path)
+                            results["audio"] = audio_result
+                            
+                            # 3. Cross-Modal Corroboration
+                            if "video" in results:
+                                video_res = results["video"]
+                                if audio_result.state == DimensionState.CONSISTENT and video_res.state == DimensionState.SUSPICIOUS:
+                                    video_res.evidence.append(Evidence(
+                                        finding="Cross-modal anomaly",
+                                        explanation="Video shows splicing markers while audio appears continuous. Typical of deepfake/visual splicing."
+                                    ))
+            except Exception as e:
+                if "video" in results:
+                    results["video"].evidence.append(Evidence(
+                        finding="Cross-modal analysis failed",
+                        explanation=str(e)
+                    ))
 
         # Assign results to analysis object
         dimension_results: List[DimensionResult] = []

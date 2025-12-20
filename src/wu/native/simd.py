@@ -181,6 +181,20 @@ def _load_library() -> bool:
             ctypes.POINTER(ctypes.c_double)
         ]
 
+        _lib.wu_h264_idct_4x4.restype = None
+        _lib.wu_h264_idct_4x4.argtypes = [
+            ctypes.POINTER(ctypes.c_int16)
+        ]
+
+        _lib.wu_h264_filter_6tap.restype = None
+        _lib.wu_h264_filter_6tap.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int16),
+            ctypes.c_int,
+            ctypes.c_int
+        ]
+
         _available = True
         return True
 
@@ -640,4 +654,79 @@ def find_similar_blocks_asm(features, positions, threshold=0.9, min_distance=10.
         return matches_out[:count*3].reshape(count, 3)
     
     return np.zeros((0, 3), dtype=np.float32)
+
+
+def h264_idct_4x4(block: 'np.ndarray') -> None:
+    """
+    Perform H.264 4x4 integer inverse transform.
+    Modifies the block in-place.
+
+    Args:
+        block: (16,) or (4,4) int16 array
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    block = np.ascontiguousarray(block, dtype=np.int16)
+    if block.size != 16:
+        raise ValueError("Block must have 16 elements")
+
+    if _lib is not None:
+        ptr = block.ctypes.data_as(ctypes.POINTER(ctypes.c_int16))
+        _lib.wu_h264_idct_4x4(ptr)
+        return
+
+    # Pure Python IDCT fallback (H.264 spec)
+    b = block.ravel()
+    tmp = [0] * 16
+    # Vertical
+    for i in range(4):
+        a = int(b[i]) + int(b[i+8])
+        bb = int(b[i]) - int(b[i+8])
+        c = (int(b[i+4]) >> 1) - int(b[i+12])
+        d = int(b[i+4]) + (int(b[i+12]) >> 1)
+        tmp[i] = a + d
+        tmp[i+4] = bb + c
+        tmp[i+8] = bb - c
+        tmp[i+12] = a - d
+    # Horizontal
+    for i in range(4):
+        idx = i * 4
+        a = tmp[idx] + tmp[idx+2]
+        bb = tmp[idx] - tmp[idx+2]
+        c = (tmp[idx+1] >> 1) - tmp[idx+3]
+        d = tmp[idx+1] + (tmp[idx+3] >> 1)
+        b[idx] = (a + d + 32) >> 6
+        b[idx+1] = (bb + c + 32) >> 6
+        b[idx+2] = (bb - c + 32) >> 6
+        b[idx+3] = (a - d + 32) >> 6
+
+
+def h264_filter_6tap(src: 'np.ndarray', stride: int, dst: 'np.ndarray', width: int, height: int) -> None:
+    """
+    H.264 6-tap filter for half-pixel interpolation.
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+    
+    src = np.ascontiguousarray(src, dtype=np.uint8)
+    dst = np.ascontiguousarray(dst, dtype=np.int16)
+    
+    if _lib is not None:
+        src_ptr = src.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
+        dst_ptr = dst.ctypes.data_as(ctypes.POINTER(ctypes.c_int16))
+        _lib.wu_h264_filter_6tap(src_ptr, stride, dst_ptr, width, height)
+        return
+        
+    # Python fallback
+    for y in range(height):
+        for x in range(width):
+            # Slow scalar fallback for verification
+            a = int(src[y * stride + x - 2])
+            b = int(src[y * stride + x - 1])
+            c = int(src[y * stride + x])
+            d = int(src[y * stride + x + 1])
+            e = int(src[y * stride + x + 2])
+            f = int(src[y * stride + x + 3])
+            dst[y * width + x] = a - 5*b + 20*c + 20*d - 5*e + f
 

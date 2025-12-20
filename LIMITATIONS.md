@@ -21,7 +21,15 @@ The practical significance of this limitation depends on context. Casual manipul
 
 ### Format-Specific Limitations
 
-Certain analyses apply only to specific file formats. JPEG quantisation analysis requires JPEG files; examining a PNG that was never compressed as JPEG will yield uncertain results, not evidence of authenticity. EXIF thumbnail comparison requires files that contain embedded thumbnails, which not all capture devices produce. Electric network frequency analysis requires audio content captured in environments where mains hum is present. Users must understand which analyses are applicable to the evidence at hand and interpret uncertain results accordingly.
+Certain analyses apply only to specific file formats. JPEG quantisation analysis requires JPEG files; examining a Portable Network Graphics (PNG) file that was never compressed as a JPEG will yield uncertain results rather than evidence of authenticity. EXIF thumbnail comparison requires files that contain embedded preview images, which not all capture devices produce. Electric Network Frequency (ENF) analysis requires audio content captured in environments where mains hum is present and identifiable. Users must understand which analyses are applicable to the evidence at hand and interpret uncertain results accordingly.
+
+### Video Forensics and Transcoding
+
+The forensic analysis of video content introduces several unique complexities that differ significantly from static image forensics. Wu examines native H.264 and MJPEG bitstreams for codec-level anomalies, but these traces are extremely fragile and can be obscured by common operations such as transcoding or re-packaging into different containers. A video that has been uploaded to a social media platform will typically undergo aggressive re-encoding which often overwrites original compression markers and motion compensation vectors. Consequently, the absence of codec-level anomalies in such files may be a result of the platform's processing rather than evidence of original authenticity. Furthermore, the current implementation focuses on Baseline Profile H.264, meaning that advanced features found in High Profile streams, such as B-frames or weighted prediction, may not yet be fully scrutinised for forensic manipulation.
+
+### Cross-Modal Forensics and Temporal Drift
+
+Integrating multiple media streams allows for more comprehensive analysis but also introduces new failure modes that users must consider. Cross-modal forensics relies on the temporal correlation between audio and video tracks, yet legitimate recording devices can occasionally exhibit synchronisation drift or variable frame rates that might be mistaken for dubbed content or splicing. While Wu attempts to identify "Cross-modal anomalies" by looking for misaligned splicing indicators, environmental factors such as background noise or low-bitrate audio compression can mask the spectral flux markers used for discontinuity detection. Forensic examiners should treat cross-modal findings as corroborative rather than definitive, especially in files where one modality exhibits significantly lower signal-to-noise ratios than the other.
 
 ### Temporal Limitations
 

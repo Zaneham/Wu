@@ -616,3 +616,90 @@ WU_EXPORT int wu_find_similar_blocks(
 
     return n_matches;
 }
+/* ============================================================================
+ * H.264 PERFORMANCE KERNELS
+ * ============================================================================ */
+
+/* Assembly implementations (x86_64) */
+#ifdef WU_X86
+extern void wu_h264_idct_4x4_avx2(int16_t* block);
+#endif
+
+/* Scalar fallback for H.264 4x4 IDCT */
+static void h264_idct_4x4_scalar(int16_t* b) {
+    int16_t tmp[16];
+    int a, bb, c, d;
+
+    /* Vertical pass */
+    for (int i = 0; i < 4; i++) {
+        a = b[i] + b[i+8];
+        bb = b[i] - b[i+8];
+        c = (b[i+4] >> 1) - b[i+12];
+        d = b[i+4] + (b[i+12] >> 1);
+
+        tmp[i]    = a + d;
+        tmp[i+4]  = bb + c;
+        tmp[i+8]  = bb - c;
+        tmp[i+12] = a - d;
+    }
+
+    /* Horizontal pass */
+    for (int i = 0; i < 4; i++) {
+        int idx = i * 4;
+        a = tmp[idx] + tmp[idx+2];
+        bb = tmp[idx] - tmp[idx+2];
+        c = (tmp[idx+1] >> 1) - tmp[idx+3];
+        d = tmp[idx+1] + (tmp[idx+3] >> 1);
+
+        b[idx]   = (a + d + 32) >> 6;
+        b[idx+1] = (bb + c + 32) >> 6;
+        b[idx+2] = (bb - c + 32) >> 6;
+        b[idx+3] = (a - d + 32) >> 6;
+    }
+}
+
+WU_EXPORT void wu_h264_idct_4x4(int16_t* block) {
+    detect_simd_caps();
+
+#ifdef WU_X86
+    if (g_simd_caps & 4) {
+        wu_h264_idct_4x4_avx2(block);
+        return;
+    }
+#endif
+
+    h264_idct_4x4_scalar(block);
+}
+
+/* Scalar fallback for H.264 6-tap filter */
+static void h264_filter_6tap_scalar(const uint8_t* src, int stride, int16_t* dst, int width, int height) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int a = src[y * stride + x - 2];
+            int b = src[y * stride + x - 1];
+            int c = src[y * stride + x];
+            int d = src[y * stride + x + 1];
+            int e = src[y * stride + x + 2];
+            int f = src[y * stride + x + 3];
+            
+            dst[y * width + x] = a - 5*b + 20*c + 20*d - 5*e + f;
+        }
+    }
+}
+
+#ifdef WU_X86
+extern void wu_h264_filter_6tap_avx2(const uint8_t* src, int stride, int16_t* dst, int width, int height);
+#endif
+
+WU_EXPORT void wu_h264_filter_6tap(const uint8_t* src, int stride, int16_t* dst, int width, int height) {
+    detect_simd_caps();
+
+#ifdef WU_X86
+    if (g_simd_caps & 4) {
+        wu_h264_filter_6tap_avx2(src, stride, dst, width, height);
+        return;
+    }
+#endif
+
+    h264_filter_6tap_scalar(src, stride, dst, width, height);
+}

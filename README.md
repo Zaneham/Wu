@@ -1,15 +1,8 @@
 # Wu - Epistemic Media Forensics Toolkit
 
-Detects manipulated media with structural uncertainty output. Hopefully it will be suitable for court admissibility (Daubert standard).
+Wu is a forensic toolkit designed to detect manipulated media by providing structured uncertainty outputs, a methodology developed to meet the rigorous requirements of court admissibility under the Daubert standard. This software is named in honour of **Chien-Shiung Wu** (1912-1997), a pioneering physicist whose meticulous experimental work disproved the principle of parity conservation and revealed fundamental asymmetries that had previously been assumed non-existent.
 
-Developed by **Zane Hambly**.
-
-Named after **Chien-Shiung Wu** (1912-1997), who disproved parity conservation and found asymmetries everyone assumed didn't exist.
-
-notes: 
-video processing is actively being worked on. 
-Wu does not explicitly target AI generated content however this tool does pick up AI generated images by proxy. AI generated or augmented videos and photos can leave traces. Please see the limitations and methodology documents for more information.
-
+Developed by **Zane Hambly**, the toolkit provides a systematic framework for the technical examination of digital evidence across multiple modality-specific dimensions. Whilst the toolkit does not explicitly target wholly synthetic generative content, the forensic methodology employed frequently identifies anomalies in AI-augmented media through the detection of proxy technical inconsistencies, as further detailed in the associated limitations and methodology documentation.
 
 ## Installation
 
@@ -20,44 +13,31 @@ pip install wu-forensics
 ## Quick Start
 
 ```bash
-# Analyse a photo
-wu analyze suspicious_photo.jpg
+# Analyse a photo or video file
+wu analyze suspicious_media.mp4
 
-# JSON output
-wu analyze photo.jpg --json
+# Generate a detailed JSON report for automated pipelines
+wu analyze evidence.jpg --json
 
-# Batch analysis
-wu batch *.jpg --output reports/
-
-
-```
-
-## Python API
-
-```python
-from wu import WuAnalyzer
-
-analyzer = WuAnalyzer()
-result = analyzer.analyze("photo.jpg")
-
-print(result.overall)  # OverallAssessment.NO_ANOMALIES
-print(result.to_json())
+# Perform batch analysis on a directory of files
+wu batch ./evidence/ --output reports/
 ```
 
 ## Detection Dimensions
 
-Wu analyses images across multiple forensic dimensions:
+Wu analyses media across multiple forensic dimensions to identify technical inconsistencies that may indicate manipulation:
 
-
-| Dimension | What It Detects |
-|-----------|-----------------|
-| **metadata** | Device impossibilities, editing software, AI signatures, timestamp issues |
-| **visual/ELA** | Error Level Analysis - compression inconsistencies from splicing |
-| **quantization** | JPEG quality table mismatches between image regions |
-| **copy-move** | Duplicated regions within the same image |
-| **PRNU** | Photo Response Non-Uniformity - sensor fingerprint anomalies |
-| **lighting** | Inconsistent light direction across image regions |
-| **blockgrid** | JPEG block boundary misalignment |
+| Dimension | Scope of Detection |
+|-----------|--------------------|
+| **metadata** | Analyses EXIF headers for device impossibilities, editing software signatures, and GPS consistency. |
+| **visual/ELA** | Examines Error Level Analysis to detect compression inconsistencies typically arising from splicing. |
+| **quantisation** | Identifies JPEG quality table mismatches across different regions of a single image. |
+| **copy-move** | Detects duplicated pixel regions through block-based and keypoint-based matching algorithms. |
+| **video** | Analyses native H.264/MJPEG bitstreams for container anomalies and codec-level splicing markers. |
+| **audio** | Inspects Electric Network Frequency (ENF) continuity and spectral discontinuities in audio tracks. |
+| **cross-modal** | Correlates findings between audio and video streams to identify temporal inconsistencies. |
+| **prnu** | Computes Photo Response Non-Uniformity fingerprints to verify sensor-level consistency. |
+| **lighting** | Evaluates the physical plausibility of light direction across various image components. |
 
 ## Benchmark Performance
 
@@ -67,7 +47,7 @@ Tested on standard forensic datasets (CASIA 2.0, CoMoFoD):
 
 | Dimension | Precision | Recall | FPR |
 |-----------|-----------|--------|-----|
-| **quantization** | **95%** | 39% | 2% |
+| **quantisation** | **95%** | 39% | 2% |
 | **visual/ELA** | **91%** | 41% | 4% |
 | **prnu** | 67% | 6% | 3% |
 | **copy-move** | 57% | 47% | 36% |
@@ -77,10 +57,10 @@ Tested on standard forensic datasets (CASIA 2.0, CoMoFoD):
 
 | Strategy | Precision | Recall | FPR | Use Case |
 |----------|-----------|--------|-----|----------|
-| ELA + Quantization | **91%** | 41% | **4%** | Conservative/Legal |
+| ELA + Quantisation | **91%** | 41% | **4%** | Conservative/Legal |
 | All dimensions | 57% | **90%** | 67% | Screening |
 
-**Key finding**: ELA + Quantization provides 91% precision with only 4% false positive rate on splice forgeries.
+**Key finding**: ELA + Quantisation provides 91% precision with only 4% false positive rate on splice forgeries.
 
 ### CoMoFoD (Copy-Move Forgeries)
 

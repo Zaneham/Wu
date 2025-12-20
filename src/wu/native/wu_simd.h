@@ -173,6 +173,24 @@ WU_EXPORT double wu_compute_blockiness(
 );
 
 /**
+ * Perform H.264 4x4 integer inverse transform.
+ *
+ * @param block 4x4 block of residuals (16 int16_t elements)
+ */
+WU_EXPORT void wu_h264_idct_4x4(int16_t* block);
+
+/**
+ * H.264 6-tap filter for half-pixel interpolation.
+ *
+ * @param src Source macroblock pixels
+ * @param stride Source stride
+ * @param dst Output for interpolated pixels
+ * @param width Block width
+ * @param height Block height
+ */
+WU_EXPORT void wu_h264_filter_6tap(const uint8_t* src, int stride, int16_t* dst, int width, int height);
+
+/**
  * Get SIMD capability info.
  *
  * @return Bitmask: 1=SSE2, 2=AVX, 4=AVX2, 8=AVX512, 16=NEON

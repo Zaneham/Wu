@@ -148,6 +148,7 @@ class WuAnalysis:
     perspective: Optional[DimensionResult] = None  # Vanishing point consistency
     quantization: Optional[DimensionResult] = None  # JPEG quantization table forensics
     aigen: Optional[DimensionResult] = None  # AI generation indicators
+    video: Optional[DimensionResult] = None  # Video container and stream forensics
 
     # Aggregated
     overall: OverallAssessment = OverallAssessment.INSUFFICIENT_DATA

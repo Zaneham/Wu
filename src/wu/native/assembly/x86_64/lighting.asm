@@ -1,6 +1,6 @@
 ; Wu Forensics - Lighting Analysis Assembly
 ; x86-64 AVX2/FMA implementation
-;
+; Author: Zane
 ; Light direction estimation from image gradients.
 ; Uses shape-from-shading principles.
 

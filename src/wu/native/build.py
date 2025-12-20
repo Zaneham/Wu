@@ -107,6 +107,7 @@ def build_assembly_files(src_dir: Path, assembler: str) -> List[Path]:
         cmd = [
             assembler,
             "-f", asm_format,
+            "-I", str(asm_dir) + "/", # Add include path
             "-o", str(obj_file),
             str(asm_file)
         ]
