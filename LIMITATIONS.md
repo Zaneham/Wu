@@ -2,7 +2,8 @@
 
 ## Scope of Detection
 
-Wu analyses media files for technical inconsistencies that may indicate manipulation, but it is essential to understand the boundaries of what any forensic tool can detect. This document describes what Wu does not detect, how a sophisticated adversary might attempt to evade detection, and why multi-dimensional analysis remains valuable despite these limitations. This transparency is not a weakness; forensic tools that do not acknowledge their limitations should be regarded with scepticism, and understanding what cannot be detected is as important as understanding what can.
+Wu analyses media files for technical inconsistencies that may indicate manipulation, but it is essential to understand the boundaries of what any forensic tool can detect. This document, compiled by **Zane**, describes what Wu does not detect, how a sophisticated adversary might attempt to evade detection, and why multi-dimensional analysis remains valuable despite these limitations. This transparency is not a weakness; forensic tools that do not acknowledge their limitations should be regarded with scepticism, and understanding what cannot be detected is as important as understanding what can.
+
 
 ## What Wu Does Not Detect
 

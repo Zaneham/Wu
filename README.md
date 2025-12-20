@@ -1,8 +1,11 @@
 # Wu - Epistemic Media Forensics Toolkit
 
-Detects manipulated media with structured uncertainty output. Hopefully it will be suitable for court admissibility (Daubert standard).
+Detects manipulated media with structural uncertainty output. Hopefully it will be suitable for court admissibility (Daubert standard).
+
+Developed by **Zane Hambly**.
 
 Named after **Chien-Shiung Wu** (1912-1997), who disproved parity conservation and found asymmetries everyone assumed didn't exist.
+
 
 ## Installation
 
@@ -13,7 +16,7 @@ pip install wu-forensics
 ## Quick Start
 
 ```bash
-# Analyze a photo
+# Analyse a photo
 wu analyze suspicious_photo.jpg
 
 # JSON output
@@ -21,6 +24,8 @@ wu analyze photo.jpg --json
 
 # Batch analysis
 wu batch *.jpg --output reports/
+
+
 ```
 
 ## Python API
@@ -37,7 +42,8 @@ print(result.to_json())
 
 ## Detection Dimensions
 
-Wu analyzes images across multiple forensic dimensions:
+Wu analyses images across multiple forensic dimensions:
+
 
 | Dimension | What It Detects |
 |-----------|-----------------|
@@ -114,7 +120,9 @@ Wu is designed with the Daubert standard in mind:
 
 ## AI Usage
 
-This project uses Claude (Anthropic) to assist with summarizing test results across 700+ test cases. All code, forensic methodology, and documentation are human-authored.
+This project uses Claude (Anthropic) to assist with summarising test results across 700+ test cases. All code, forensic methodology, and documentation are human-authored by me.
+
+
 
 ## License
 

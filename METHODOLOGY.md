@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Wu is a forensic analysis toolkit designed to identify inconsistencies in media files through multiple independent lines of technical inquiry. It is named after Chien-Shiung Wu, the physicist whose meticulous experimental work revealed asymmetries that prevailing theory assumed could not exist. In that spirit, Wu examines media files not to render verdicts but to surface evidence that warrants explanation.
+Wu is a forensic analysis toolkit developed by **Zane Hambly**, designed to identify inconsistencies in media files through multiple independent lines of technical inquiry. It is named after Chien-Shiung Wu, the physicist whose meticulous experimental work revealed asymmetries that prevailing theory assumed could not exist. In that spirit, Wu examines media files not to render verdicts but to surface evidence that warrants explanation.
+
 
 ## Epistemic Philosophy
 
