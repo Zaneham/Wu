@@ -162,7 +162,7 @@ class WuAnalysis:
             self.metadata, self.visual, self.audio,
             self.temporal, self.c2pa, self.enf, self.copymove, self.prnu,
             self.blockgrid, self.lighting, self.thumbnail, self.shadows,
-            self.perspective, self.quantization, self.aigen
+            self.perspective, self.quantization, self.aigen, self.video
         ] if d is not None]
 
     @property
@@ -206,6 +206,7 @@ class WuAnalysis:
                 "perspective": self.perspective.to_dict() if self.perspective else None,
                 "quantization": self.quantization.to_dict() if self.quantization else None,
                 "aigen": self.aigen.to_dict() if self.aigen else None,
+                "video": self.video.to_dict() if self.video else None,
             }
         }
 
