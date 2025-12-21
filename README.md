@@ -205,6 +205,8 @@ This project uses Claude (Anthropic) to assist with summarising test results acr
 
 ## Contact
 
+Wu is free and always will be. Open source, no commercial licensing.
+
 Wu is under active development. If you're evaluating this for 
 forensic or legal use, I'm happy to discuss:
 
