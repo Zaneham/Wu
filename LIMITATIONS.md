@@ -81,8 +81,6 @@ The landscape of media manipulation and forensic detection evolves continuously.
 
 ## Note: On the subject of AI 
 
-A Note on AI-Generated Content
-
 Wu's primary purpose is detecting manipulation of captured media rather than classifying whether content is wholly synthetic. However, several analyses within the toolkit may surface findings that are relevant when considering AI-generated imagery or video, even though Wu was not designed with this purpose in mind.
 
 Authentic photographs and recordings carry physical-world signatures that 
