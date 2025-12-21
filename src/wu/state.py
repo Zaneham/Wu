@@ -149,6 +149,7 @@ class WuAnalysis:
     quantization: Optional[DimensionResult] = None  # JPEG quantization table forensics
     aigen: Optional[DimensionResult] = None  # AI generation indicators
     video: Optional[DimensionResult] = None  # Video container and stream forensics
+    lipsync: Optional[DimensionResult] = None  # Audio-visual synchronisation
 
     # Aggregated
     overall: OverallAssessment = OverallAssessment.INSUFFICIENT_DATA
@@ -162,7 +163,7 @@ class WuAnalysis:
             self.metadata, self.visual, self.audio,
             self.temporal, self.c2pa, self.enf, self.copymove, self.prnu,
             self.blockgrid, self.lighting, self.thumbnail, self.shadows,
-            self.perspective, self.quantization, self.aigen, self.video
+            self.perspective, self.quantization, self.aigen, self.video, self.lipsync
         ] if d is not None]
 
     @property
@@ -207,6 +208,7 @@ class WuAnalysis:
                 "quantization": self.quantization.to_dict() if self.quantization else None,
                 "aigen": self.aigen.to_dict() if self.aigen else None,
                 "video": self.video.to_dict() if self.video else None,
+                "lipsync": self.lipsync.to_dict() if self.lipsync else None,
             }
         }
 

@@ -41,6 +41,13 @@ from .aigen import (
     ColorAnalysis,
 )
 
+from .lipsync import (
+    LipSyncAnalyzer,
+    PhonemeClass,
+    Viseme,
+    SyncResult,
+)
+
 __all__ = [
     "MetadataAnalyzer",
     "C2PAAnalyzer",
@@ -81,4 +88,8 @@ __all__ = [
     "CheckerboardAnalysis",
     "NoiseAnalysis",
     "ColorAnalysis",
+    "LipSyncAnalyzer",
+    "PhonemeClass",
+    "Viseme",
+    "SyncResult",
 ]

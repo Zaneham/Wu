@@ -35,10 +35,18 @@ def _find_library() -> Optional[Path]:
     search_paths = [
         Path(__file__).parent / lib_name,
         Path(__file__).parent / "build" / lib_name,
+    ]
+
+    # Support PyInstaller bundles
+    if hasattr(sys, "_MEIPASS"):
+        search_paths.append(Path(sys._MEIPASS) / "wu" / "native" / lib_name)
+        search_paths.append(Path(sys._MEIPASS) / "src" / "wu" / "native" / lib_name)
+
+    search_paths.extend([
         Path(__file__).parent.parent.parent.parent / "build" / lib_name,
         Path.cwd() / lib_name,
         Path.cwd() / "build" / lib_name,
-    ]
+    ])
 
     for path in search_paths:
         if path.exists():

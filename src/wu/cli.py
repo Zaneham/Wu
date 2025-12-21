@@ -111,7 +111,7 @@ def print_analysis(analysis, verbose: bool = False):
 
 if HAS_CLICK:
     @click.group()
-    @click.version_option(version="0.1.0", prog_name="wu")
+    @click.version_option(version="1.2.0", prog_name="wu")
     def cli():
         """
         Wu - Epistemic Media Forensics Toolkit
@@ -143,6 +143,7 @@ if HAS_CLICK:
     @click.option("--perspective", is_flag=True, help="Enable vanishing point consistency analysis")
     @click.option("--quantization", is_flag=True, help="Enable JPEG quantization table forensics")
     @click.option("--aigen", is_flag=True, help="Enable AI generation indicator analysis")
+    @click.option("--video/--no-video", default=True, help="Enable/disable video and cross-modal analysis")
     def analyze(
         file_path: str,
         output_json: bool,
@@ -161,7 +162,8 @@ if HAS_CLICK:
         shadows: bool,
         perspective: bool,
         quantization: bool,
-        aigen: bool
+        aigen: bool,
+        video: bool
     ):
         """
         Analyze a media file for manipulation.
@@ -212,7 +214,8 @@ if HAS_CLICK:
             enable_shadows=shadows,
             enable_perspective=perspective,
             enable_quantization=quantization,
-            enable_aigen=aigen
+            enable_aigen=aigen,
+            enable_video=video
         )
 
         if not analyzer.is_supported(file_path):

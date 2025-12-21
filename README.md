@@ -135,6 +135,7 @@ Wu analyses media across multiple forensic dimensions to identify technical inco
 | **cross-modal** | Correlates findings between audio and video streams to identify temporal inconsistencies. |
 | **prnu** | Computes Photo Response Non-Uniformity fingerprints to verify sensor-level consistency. |
 | **lighting** | Evaluates the physical plausibility of light direction across various image components. |
+| **lip-sync** | Detects audio-visual desynchronisation in video using deterministic formant analysis and phoneme-viseme correlation. |
 
 ## Benchmark Performance
 

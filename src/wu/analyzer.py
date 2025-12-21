@@ -45,6 +45,7 @@ from .dimensions import (
     AIGenerationAnalyzer,
 )
 from .video.analyzer import VideoAnalyzer
+from .dimensions.lipsync import LipSyncAnalyzer
 
 __version__ = "1.1.0"
 
@@ -95,6 +96,7 @@ class WuAnalyzer:
         enable_quantization: bool = False,  # Disabled by default (JPEG-specific)
         enable_aigen: bool = False,  # Disabled by default (AI generation indicators)
         enable_video: bool = True,  # Enabled by default for video files
+        enable_lipsync: bool = False,  # Disabled by default (requires video with audio)
         parallel: bool = True,  # Enable parallel dimension execution
         max_workers: Optional[int] = None,  # Max parallel workers (None = auto)
     ):
@@ -153,6 +155,8 @@ class WuAnalyzer:
         self._quantization_analyzer = QuantizationAnalyzer() if enable_quantization else None
         self._aigen_analyzer = AIGenerationAnalyzer() if enable_aigen else None
         self._video_analyzer = VideoAnalyzer() if enable_video else None
+        self._lipsync_analyzer = LipSyncAnalyzer() if enable_lipsync else None
+        self.enable_lipsync = enable_lipsync
 
         # Build list of enabled analyzers for parallel execution
         self._analyzer_config = self._build_analyzer_config()

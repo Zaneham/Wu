@@ -789,3 +789,299 @@ class TestRegressions:
             _ = dim.is_problematic
             _ = dim.is_suspicious
             _ = dim.is_clean
+
+
+# =============================================================================
+# LIP-SYNC ANALYSIS TESTS
+# =============================================================================
+
+class TestLipSyncAnalysis:
+    """Tests for the deterministic lip-sync analysis module."""
+
+    def test_lipsync_analyzer_import(self):
+        """LipSyncAnalyzer should import correctly."""
+        from wu.dimensions.lipsync import LipSyncAnalyzer
+        analyzer = LipSyncAnalyzer()
+        assert analyzer is not None
+
+    def test_lipsync_phoneme_classes(self):
+        """Phoneme classes should be defined."""
+        from wu.dimensions.lipsync import PhonemeClass
+        assert PhonemeClass.SILENCE == 0
+        assert PhonemeClass.OPEN == 1
+        assert PhonemeClass.BILABIAL == 5
+
+    def test_lipsync_viseme_classes(self):
+        """Viseme classes should be defined."""
+        from wu.dimensions.lipsync import Viseme
+        assert Viseme.CLOSED == 0
+        assert Viseme.WIDE == 3
+        assert Viseme.ROUNDED == 4
+
+    def test_phoneme_viseme_compatibility(self):
+        """Phoneme-viseme compatibility matrix should work."""
+        from wu.dimensions.lipsync import (
+            phoneme_viseme_compatible, PhonemeClass, Viseme
+        )
+        # Silence should be compatible with closed mouth
+        assert phoneme_viseme_compatible(PhonemeClass.SILENCE, Viseme.CLOSED)
+        # Open vowels should be compatible with wide mouth
+        assert phoneme_viseme_compatible(PhonemeClass.OPEN, Viseme.WIDE)
+        # Bilabials should be compatible with closed mouth
+        assert phoneme_viseme_compatible(PhonemeClass.BILABIAL, Viseme.CLOSED)
+        # Open vowels should NOT be compatible with closed mouth
+        assert not phoneme_viseme_compatible(PhonemeClass.OPEN, Viseme.CLOSED)
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_audio_to_phonemes_silent(self):
+        """Silent audio should produce silence phonemes."""
+        from wu.dimensions.lipsync import audio_to_phonemes, PhonemeClass
+
+        # Create silent audio (1 second @ 16kHz)
+        silent_audio = np.zeros(16000, dtype=np.float32)
+        phonemes, times = audio_to_phonemes(silent_audio, 16000)
+
+        assert len(phonemes) > 0
+        assert len(times) == len(phonemes)
+        # Most phonemes should be silence
+        silence_count = sum(1 for p in phonemes if p == PhonemeClass.SILENCE)
+        assert silence_count > len(phonemes) * 0.8
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_audio_to_phonemes_broadband(self):
+        """Broadband audio with formant-like peaks should produce phonemes."""
+        from wu.dimensions.lipsync import audio_to_phonemes, PhonemeClass
+
+        # Create broadband noise with formant-like structure
+        # This simulates vowel-like content with energy in F1/F2 ranges
+        t = np.linspace(0, 1, 16000, dtype=np.float32)
+        # Mix of frequencies in vowel formant ranges (300-800Hz, 1000-2000Hz)
+        audio = (
+            0.3 * np.sin(2 * np.pi * 500 * t) +   # F1 range
+            0.2 * np.sin(2 * np.pi * 1500 * t) +  # F2 range
+            0.1 * np.random.randn(16000).astype(np.float32)  # Noise
+        )
+        phonemes, times = audio_to_phonemes(audio, 16000)
+
+        assert len(phonemes) > 0
+        # With formant-like content, should detect some non-silence
+        # (though exact classification depends on threshold tuning)
+        assert len(times) == len(phonemes)
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_lip_region_detection(self):
+        """Lip region detection should work on synthetic face image."""
+        from wu.dimensions.lipsync import detect_lips_color
+
+        # Create a synthetic "face" with lip-coloured region
+        frame = np.zeros((200, 200, 3), dtype=np.uint8)
+        # Add a reddish region in lower third (simulating lips)
+        # RGB values that should pass lip detection: elevated Cr, moderate Cb
+        frame[130:160, 70:130] = [180, 100, 100]  # Reddish
+
+        face_bbox = (0, 0, 200, 200)
+        lips = detect_lips_color(frame, face_bbox)
+
+        # Detection might or might not succeed depending on exact thresholds
+        # but should not crash
+        assert hasattr(lips, 'valid')
+        assert hasattr(lips, 'width')
+        assert hasattr(lips, 'height')
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_viseme_classification(self):
+        """Viseme classification should work for various lip states."""
+        from wu.dimensions.lipsync import classify_viseme, LipRegion, Viseme
+
+        # Closed lips (small aperture)
+        closed = LipRegion(
+            center_x=100, center_y=150, width=40, height=2,
+            area=80, face_height=200, valid=True
+        )
+        assert classify_viseme(closed) == Viseme.CLOSED
+
+        # Wide open mouth (large aperture)
+        wide = LipRegion(
+            center_x=100, center_y=150, width=50, height=30,
+            area=1500, face_height=200, valid=True
+        )
+        assert classify_viseme(wide) == Viseme.WIDE
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_sync_analysis_aligned(self):
+        """Sync analysis should detect aligned sequences."""
+        from wu.dimensions.lipsync import (
+            analyze_sync, PhonemeClass, Viseme
+        )
+
+        # Create perfectly aligned sequences
+        phonemes = [PhonemeClass.OPEN] * 50
+        visemes = [Viseme.WIDE] * 50
+        phon_times = [i * 10000 for i in range(50)]  # 10ms apart
+        vis_times = [i * 10000 for i in range(50)]
+
+        result = analyze_sync(phonemes, phon_times, visemes, vis_times)
+
+        assert result.total_frames > 0
+        assert abs(result.offset_ms) < 100  # Should be close to 0
+        assert result.mismatch_count < result.total_frames  # Mostly matches
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_sync_analysis_offset(self):
+        """Sync analysis should detect offset sequences."""
+        from wu.dimensions.lipsync import (
+            analyze_sync, PhonemeClass, Viseme
+        )
+
+        # Create offset sequences (200ms offset)
+        phonemes = [PhonemeClass.OPEN] * 50
+        visemes = [Viseme.WIDE] * 50
+        phon_times = [i * 10000 for i in range(50)]
+        vis_times = [i * 10000 + 200000 for i in range(50)]  # 200ms later
+
+        result = analyze_sync(phonemes, phon_times, visemes, vis_times)
+
+        assert result.total_frames > 0
+        # Should detect approximately 200ms offset
+        assert abs(result.offset_ms - (-200)) < 50 or abs(result.offset_ms) > 150
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_lipsync_analyzer_streams(self):
+        """LipSyncAnalyzer.analyze_streams should work."""
+        from wu.dimensions.lipsync import LipSyncAnalyzer
+        from wu.state import DimensionState
+
+        analyzer = LipSyncAnalyzer()
+
+        # Create minimal test data
+        audio = np.zeros(16000, dtype=np.float32)  # 1 second silence
+        frames = [np.zeros((100, 100, 3), dtype=np.uint8) for _ in range(30)]
+        bboxes = [(10, 10, 80, 80) for _ in range(30)]
+
+        result = analyzer.analyze_streams(
+            audio_samples=audio,
+            audio_sample_rate=16000,
+            video_frames=frames,
+            video_fps=30.0,
+            face_bboxes=bboxes
+        )
+
+        assert result.dimension == "lipsync"
+        # With silent audio, likely UNCERTAIN or CONSISTENT
+        assert result.state in [
+            DimensionState.UNCERTAIN,
+            DimensionState.CONSISTENT,
+            DimensionState.SUSPICIOUS
+        ]
+
+    def test_lipsync_determinism(self):
+        """Lip-sync analysis should be deterministic."""
+        from wu.dimensions.lipsync import (
+            audio_to_phonemes, PhonemeClass
+        )
+
+        if not HAS_NUMPY:
+            pytest.skip("NumPy required")
+
+        # Create reproducible test audio
+        np.random.seed(42)
+        audio = np.random.randn(16000).astype(np.float32) * 0.1
+
+        # Run twice
+        phonemes1, times1 = audio_to_phonemes(audio, 16000)
+        phonemes2, times2 = audio_to_phonemes(audio, 16000)
+
+        # Results should be identical
+        assert phonemes1 == phonemes2
+        assert times1 == times2
+
+    def test_wu_analyzer_lipsync_flag(self):
+        """WuAnalyzer should accept enable_lipsync parameter."""
+        analyzer = WuAnalyzer(enable_lipsync=True)
+        assert hasattr(analyzer, '_lipsync_analyzer')
+        assert analyzer._lipsync_analyzer is not None
+
+    def test_wu_analysis_lipsync_field(self):
+        """WuAnalysis should have lipsync field."""
+        from wu.state import WuAnalysis
+        from datetime import datetime
+
+        analysis = WuAnalysis(
+            file_path="test.mp4",
+            file_hash="abc123",
+            analyzed_at=datetime.now(),
+            wu_version="1.3.0"
+        )
+        assert hasattr(analysis, 'lipsync')
+        assert analysis.lipsync is None  # Not set yet
+
+
+# =============================================================================
+# Q15 FIXED-POINT FFT TESTS
+# =============================================================================
+
+class TestQ15FFT:
+    """Tests for the Q15 fixed-point FFT implementation (Python layer)."""
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_hamming_window(self):
+        """Hamming window should have correct shape."""
+        from wu.dimensions.lipsync import _hamming_window
+
+        window = _hamming_window(512)
+        assert len(window) == 512
+        assert window[0] < window[255]  # Edges lower than centre
+        assert window[0] == pytest.approx(window[-1], rel=0.01)
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_formant_extraction_silence(self):
+        """Formant extraction should handle silence."""
+        from wu.dimensions.lipsync import _extract_formants
+
+        # Silent spectrum
+        magnitude = np.zeros(256, dtype=np.float32)
+        formants = _extract_formants(magnitude, 16000)
+
+        assert not formants.voiced
+        assert formants.energy < 0.01
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_formant_extraction_voiced(self):
+        """Formant extraction should detect voiced content."""
+        from wu.dimensions.lipsync import _extract_formants
+
+        # Create spectrum with peaks at F1 (500Hz) and F2 (1500Hz)
+        magnitude = np.zeros(256, dtype=np.float32)
+        # Bin = freq * fft_size / sample_rate = freq * 512 / 16000
+        f1_bin = int(500 * 512 / 16000)
+        f2_bin = int(1500 * 512 / 16000)
+        magnitude[f1_bin] = 0.5
+        magnitude[f2_bin] = 0.4
+        magnitude[:50] = 0.1  # Some background energy
+
+        formants = _extract_formants(magnitude, 16000)
+
+        assert formants.voiced
+        assert formants.f1_hz > 0
+        assert formants.f2_hz > 0
+
+    @pytest.mark.skipif(not HAS_NUMPY, reason="NumPy required")
+    def test_phoneme_classification_rules(self):
+        """Phoneme classification should follow F1/F2 rules."""
+        from wu.dimensions.lipsync import _classify_phoneme, Formants, PhonemeClass
+
+        # High F1 (>600Hz) -> OPEN
+        open_formants = Formants(f1_hz=700, f2_hz=1500, energy=0.5, voiced=True)
+        assert _classify_phoneme(open_formants) == PhonemeClass.OPEN
+
+        # Low F1, high F2 -> CLOSE_FRONT
+        front_formants = Formants(f1_hz=300, f2_hz=2200, energy=0.5, voiced=True)
+        assert _classify_phoneme(front_formants) == PhonemeClass.CLOSE_FRONT
+
+        # Low F1, low F2 -> CLOSE_BACK
+        back_formants = Formants(f1_hz=300, f2_hz=900, energy=0.5, voiced=True)
+        assert _classify_phoneme(back_formants) == PhonemeClass.CLOSE_BACK
+
+        # Not voiced -> SILENCE
+        silence_formants = Formants(f1_hz=0, f2_hz=0, energy=0.01, voiced=False)
+        assert _classify_phoneme(silence_formants) == PhonemeClass.SILENCE

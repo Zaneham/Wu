@@ -192,16 +192,23 @@ def build_windows_msvc(src_dir: Path, out_dir: Path, obj_files: List[Path] = Non
     out_dir.mkdir(exist_ok=True)
     dll_path = out_dir / "wu_simd.dll"
 
+    # Source files to compile
+    c_sources = [
+        src_dir / "wu_simd.c",
+        src_dir / "wu_asm_wrappers.c",
+        src_dir / "wu_fft_q15.c",
+        src_dir / "wu_lipsync.c",
+    ]
+
     # Base command
     cmd = [
         "cl.exe",
-        "/O2",           # Optimize for speed
+        "/O2",           # Optimise for speed
         "/arch:AVX2",    # Enable AVX2
         "/LD",           # Create DLL
         "/Fe:" + str(dll_path),
-        str(src_dir / "wu_simd.c"),
-        str(src_dir / "wu_asm_wrappers.c"), # Include wrappers
     ]
+    cmd.extend([str(f) for f in c_sources if f.exists()])
 
     # Add assembly object files if present
     if obj_files:
@@ -217,16 +224,23 @@ def build_windows_gcc(src_dir: Path, out_dir: Path, obj_files: List[Path] = None
     out_dir.mkdir(exist_ok=True)
     dll_path = out_dir / "wu_simd.dll"
 
+    # Source files to compile
+    c_sources = [
+        src_dir / "wu_simd.c",
+        src_dir / "wu_asm_wrappers.c",
+        src_dir / "wu_fft_q15.c",
+        src_dir / "wu_lipsync.c",
+    ]
+
     cmd = [
         "gcc",
-        "-O3",           # Optimize for speed
+        "-O3",           # Optimise for speed
         "-mavx2",        # Enable AVX2
         "-mfma",         # Enable FMA
         "-shared",       # Create shared library
         "-o", str(dll_path),
-        str(src_dir / "wu_simd.c"),
-        str(src_dir / "wu_asm_wrappers.c"), # Include wrappers
     ]
+    cmd.extend([str(f) for f in c_sources if f.exists()])
 
     # Add assembly object files if present
     if obj_files:
@@ -254,16 +268,23 @@ def build_unix(src_dir: Path, out_dir: Path, compiler: str, obj_files: List[Path
 
     lib_path = out_dir / lib_name
 
+    # Source files to compile
+    c_sources = [
+        src_dir / "wu_simd.c",
+        src_dir / "wu_asm_wrappers.c",
+        src_dir / "wu_fft_q15.c",
+        src_dir / "wu_lipsync.c",
+    ]
+
     cmd = [
         compiler,
-        "-O3",           # Optimize for speed
+        "-O3",           # Optimise for speed
         *arch_flags,     # Architecture-specific flags
         "-shared",       # Create shared library
         "-fPIC",         # Position-independent code
         "-o", str(lib_path),
-        str(src_dir / "wu_simd.c"),
-        str(src_dir / "wu_asm_wrappers.c"), # Include wrappers
     ]
+    cmd.extend([str(f) for f in c_sources if f.exists()])
 
     # Add assembly object files if present
     if obj_files:
