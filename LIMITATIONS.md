@@ -87,7 +87,7 @@ Authentic photographs and recordings carry physical-world signatures that
 arise naturally from the capture process. A camera sensor exhibits Photo 
 Response Non-Uniformity patterns unique to that device. Audio recorded in 
 environments connected to electrical grids contains Electric Network Frequency 
-hum at characteristic frequencies. Device metadata reflects the genuine 
+hum at characteristic frequencies (Some Governments and power companies release these as public information). Device metadata reflects the genuine 
 properties of capture hardware, including make, model, firmware version, and 
 GPS coordinates where applicable. These signatures exist because the content 
 passed through physical reality on its way to becoming a file.
