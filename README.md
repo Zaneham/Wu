@@ -14,7 +14,7 @@ ZH: This program is still in active development and will be worked on. I am curr
 - constant ongoing testing
 - additional model-agnostic capabilites 
 
-  If there are any requests or questions please feel free to leave an Issue.
+  If there are any requests or questions please feel free to leave an Issue or scroll down to the contact section.
 
 ## Installation
 
