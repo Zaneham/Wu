@@ -4,6 +4,17 @@ Wu is a forensic toolkit designed to detect manipulated media by providing struc
 
 Developed by **Zane Hambly**, the toolkit provides a systematic framework for the technical examination of digital evidence across multiple modality-specific dimensions. Whilst the toolkit does not explicitly target wholly synthetic generative content, the forensic methodology employed frequently identifies anomalies in AI-augmented media through the detection of proxy technical inconsistencies, as further detailed in the associated limitations and methodology documentation.
 
+## Importaant note: 
+
+ZH: This program is still in active development and will be worked on. I am currently working on: 
+
+- ARM assembler for Mac support
+- RISC-V support
+- Python currently exists as a proof-of-concept. Over time this will be moved to cython and other critical loops will be ported into C
+- constant ongoing testing
+
+  If there are any requests or questions please feel free to leave an Issue.
+
 ## Installation
 
 ### Option 1: Python Package (Recommended for Development)
