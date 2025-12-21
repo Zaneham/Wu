@@ -205,8 +205,18 @@ This project uses Claude (Anthropic) to assist with summarising test results acr
 
 ## Contact
 
-For any questions you may reach out to me at zanehambly@gmail.com
+Wu is under active development. If you're evaluating this for 
+forensic or legal use, I'm happy to discuss:
 
+- Current capabilities and limitations
+- Validation methodology and benchmark data
+- Roadmap and planned features
+- How the detection approach works
+
+This is research-grade tooling, not a commercial forensic product. 
+No court admissibility precedent exists yet
+
+contact me at zanehambly@gmail.com
 
 
 ## License
