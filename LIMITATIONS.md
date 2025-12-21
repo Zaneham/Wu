@@ -78,3 +78,43 @@ Fourth, understanding adversarial limitations helps calibrate confidence appropr
 ## Ongoing Development
 
 The landscape of media manipulation and forensic detection evolves continuously. New manipulation techniques emerge, and detection methods advance in response. Wu is designed to accommodate additional analysis dimensions as forensic research progresses, and users should ensure they are using current versions that incorporate the latest detection capabilities. The modular architecture allows new dimensions to be added without disrupting existing analyses, ensuring that the toolkit can grow to address emerging challenges while maintaining the reliability of established methods.
+
+## Note: On the subject of AI 
+
+A Note on AI-Generated Content
+
+Wu's primary purpose is detecting manipulation of captured media rather than classifying whether content is wholly synthetic. However, several analyses within the toolkit may surface findings that are relevant when considering AI-generated imagery or video, even though Wu was not designed with this purpose in mind.
+
+Authentic photographs and recordings carry physical-world signatures that 
+arise naturally from the capture process. A camera sensor exhibits Photo 
+Response Non-Uniformity patterns unique to that device. Audio recorded in 
+environments connected to electrical grids contains Electric Network Frequency 
+hum at characteristic frequencies. Device metadata reflects the genuine 
+properties of capture hardware, including make, model, firmware version, and 
+GPS coordinates where applicable. These signatures exist because the content 
+passed through physical reality on its way to becoming a file.
+
+AI-generated content does not pass through this process. There is no sensor 
+to leave a PRNU fingerprint, no physical environment to embed ENF hum, no 
+capture device to populate authentic metadata. When Wu examines such content, 
+several analyses may return findings indicating the absence of expected 
+physical-world markers rather than the presence of manipulation artefacts.
+
+This distinction is important. Wu cannot affirmatively classify content as 
+AI-generated; such classification requires specialised tools employing 
+different methodologies, typically trained classifiers that identify 
+statistical patterns characteristic of generative models. What Wu can do is 
+surface the absence of signatures that authentic captured media would 
+ordinarily contain. A file exhibiting no PRNU consistency, no ENF signal, 
+and metadata that is either absent or structurally anomalous has not been 
+demonstrated to be synthetic, but it has failed to exhibit the markers one 
+would expect from genuine physical capture.
+
+Forensic examiners should interpret such findings carefully. The absence of 
+physical-world signatures may indicate AI generation, but it may also 
+indicate aggressive post-processing, format conversion, or other workflows 
+that strip or overwrite such markers. As with all Wu findings, the absence 
+of expected signatures is evidence requiring explanation, not a definitive 
+conclusion. The examiner must consider the totality of circumstances, 
+including the provenance claimed for the content and whether that claimed 
+provenance is consistent with the technical findings observed.
