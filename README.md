@@ -8,10 +8,11 @@ Developed by **Zane Hambly**, the toolkit provides a systematic framework for th
 
 ZH: This program is still in active development and will be worked on. I am currently working on: 
 
-- ARM assembler for Mac support
+- ARM assembler  
 - RISC-V support
 - Python currently exists as a proof-of-concept. Over time this will be moved to cython and other critical loops will be ported into C
 - constant ongoing testing
+- additional model-agnostic capabilites 
 
   If there are any requests or questions please feel free to leave an Issue.
 
