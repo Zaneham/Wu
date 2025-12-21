@@ -203,6 +203,10 @@ Wu is designed with the Daubert standard in mind:
 
 This project uses Claude (Anthropic) to assist with summarising test results across 700+ test cases. All code, forensic methodology, and documentation are human-authored by me.
 
+## Contact
+
+For any questions you may reach out to me at zanehambly@gmail.com
+
 
 
 ## License
