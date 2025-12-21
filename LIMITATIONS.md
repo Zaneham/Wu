@@ -13,6 +13,8 @@ Wu is designed to detect manipulation of existing photographs, not to identify w
 
 Detecting AI-generated imagery requires fundamentally different techniques, typically involving trained classifiers that identify statistical patterns characteristic of generative models. Such detection is an active research area with rapidly evolving capabilities on both the generation and detection sides, and it falls outside Wu's current scope. Users who need to assess whether content is AI-generated should employ specialised tools designed for that purpose.
 
+note: scroll down for more information.
+
 ### Skilled Manual Retouching
 
 A careful human operator working with professional tools can perform manipulations that leave minimal technical traces. If someone uses raw image data, manually paints modifications at the pixel level, carefully manages compression to avoid telltale artefacts, and ensures metadata consistency throughout, the resulting file may exhibit no anomalies detectable through automated analysis. This does not mean such manipulation is undetectable in principle, only that it requires more intensive examination than automated tools can provide.
