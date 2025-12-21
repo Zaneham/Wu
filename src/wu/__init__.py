@@ -12,6 +12,14 @@ References:
         in Beta Decay. Physical Review, 105(4), 1413-1415.
 """
 
+from importlib.metadata import version as _get_version, PackageNotFoundError
+
+try:
+    __version__ = _get_version("wu-forensics")
+except PackageNotFoundError:
+    # Package not installed (running from source)
+    __version__ = "0.0.0-dev"
+
 from .state import (
     DimensionState,
     DimensionResult,
@@ -42,8 +50,8 @@ from .dimensions import (
     LightVector,
 )
 
-__version__ = "1.2.0"
 __all__ = [
+    "__version__",
     # Main interface
     "WuAnalyzer",
     "EpistemicAggregator",
@@ -56,7 +64,7 @@ __all__ = [
     "OverallAssessment",
     "Confidence",
     "Evidence",
-    # Dimension analyzers
+    # Dimension analysers
     "MetadataAnalyzer",
     "C2PAAnalyzer",
     "GPSAnalyzer",

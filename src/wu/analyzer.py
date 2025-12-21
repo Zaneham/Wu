@@ -47,7 +47,12 @@ from .dimensions import (
 from .video.analyzer import VideoAnalyzer
 from .dimensions.lipsync import LipSyncAnalyzer
 
-__version__ = "1.1.0"
+from importlib.metadata import version as _get_version, PackageNotFoundError
+
+try:
+    __version__ = _get_version("wu-forensics")
+except PackageNotFoundError:
+    __version__ = "0.0.0-dev"
 
 # Default number of workers for parallel execution
 DEFAULT_MAX_WORKERS = min(8, (os.cpu_count() or 4))

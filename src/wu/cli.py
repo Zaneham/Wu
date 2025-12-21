@@ -22,7 +22,7 @@ try:
 except ImportError:
     HAS_CLICK = False
 
-from .analyzer import WuAnalyzer
+from .analyzer import WuAnalyzer, __version__
 from .state import OverallAssessment
 
 
@@ -111,7 +111,7 @@ def print_analysis(analysis, verbose: bool = False):
 
 if HAS_CLICK:
     @click.group()
-    @click.version_option(version="1.2.0", prog_name="wu")
+    @click.version_option(version=__version__, prog_name="wu")
     def cli():
         """
         Wu - Epistemic Media Forensics Toolkit
