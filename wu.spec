@@ -70,10 +70,15 @@ datas = []
 if os.path.exists('src/wu/report/templates'):
     datas.append(('src/wu/report/templates', 'wu/report/templates'))
 
+# Include native DLL only if it exists (not present on CI runners)
+native_binaries = []
+if os.path.exists('src/wu/native/wu_simd.dll'):
+    native_binaries.append(('src/wu/native/wu_simd.dll', 'wu/native'))
+
 a = Analysis(
     ['wu_launcher.py'],
     pathex=['src'],
-    binaries=[('src/wu/native/wu_simd.dll', 'wu/native')] + (wu_data if wu_data else []),
+    binaries=native_binaries + (wu_data if wu_data else []),
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
