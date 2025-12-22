@@ -27,7 +27,7 @@ from .state import (
     WuAnalysis,
     OverallAssessment,
 )
-from .aggregator import EpistemicAggregator
+from .aggregator import EpistemicAggregator, AuthenticityAggregator
 from .dimensions import (
     MetadataAnalyzer,
     C2PAAnalyzer,
@@ -105,6 +105,7 @@ class WuAnalyzer:
         enable_lipsync: bool = False,  # Disabled by default (requires video with audio)
         parallel: bool = True,  # Enable parallel dimension execution
         max_workers: Optional[int] = None,  # Max parallel workers (None = auto)
+        authenticity_mode: bool = False,  # Enable authenticity burden mode
     ):
         """
         Initialize analyzer with dimension configuration.
@@ -126,6 +127,7 @@ class WuAnalyzer:
             enable_aigen: Enable AI generation indicator analysis
             parallel: Enable parallel execution of dimension analyzers
             max_workers: Maximum number of parallel workers (None = auto)
+            authenticity_mode: Enable authenticity burden mode (prove authentic vs detect fake)
         """
         self.enable_metadata = enable_metadata
         self.enable_c2pa = enable_c2pa
@@ -144,6 +146,8 @@ class WuAnalyzer:
         self.parallel = parallel
         self.max_workers = max_workers or DEFAULT_MAX_WORKERS
         self.aggregator = EpistemicAggregator()
+        self.authenticity_mode = authenticity_mode
+        self._authenticity_aggregator = AuthenticityAggregator() if authenticity_mode else None
 
         # Initialize dimension analyzers
         self._metadata_analyzer = MetadataAnalyzer() if enable_metadata else None
@@ -314,6 +318,12 @@ class WuAnalyzer:
             from .state import OverallAssessment
             if analysis.overall == OverallAssessment.NO_ANOMALIES:
                 analysis.overall = OverallAssessment.INCONSISTENCIES_DETECTED
+
+        # Authenticity burden mode - compute verification chain and gaps
+        if self.authenticity_mode and self._authenticity_aggregator:
+            analysis.authenticity = self._authenticity_aggregator.aggregate(
+                dimension_results
+            )
 
         return analysis
 

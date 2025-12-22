@@ -23,7 +23,7 @@ except ImportError:
     HAS_CLICK = False
 
 from .analyzer import WuAnalyzer, __version__
-from .state import OverallAssessment
+from .state import OverallAssessment, AuthenticityAssessment
 
 
 # ANSI colors for terminal output
@@ -85,6 +85,31 @@ def print_analysis(analysis, verbose: bool = False):
                 print(f"  - {finding}")
         print()
 
+    # Authenticity assessment (if present)
+    if hasattr(analysis, 'authenticity') and analysis.authenticity:
+        auth = analysis.authenticity
+        print(colorize("AUTHENTICITY ASSESSMENT:", Colors.BOLD))
+        if auth.assessment == AuthenticityAssessment.VERIFIED_AUTHENTIC:
+            color = Colors.GREEN
+        elif auth.assessment == AuthenticityAssessment.LIKELY_AUTHENTIC:
+            color = Colors.GREEN
+        elif auth.assessment == AuthenticityAssessment.AUTHENTICITY_COMPROMISED:
+            color = Colors.RED
+        else:
+            color = Colors.YELLOW
+        print(f"  {colorize(auth.assessment.value.upper(), color, bold=True)}")
+        print(f"  Confidence: {auth.confidence:.0%}")
+        if auth.verification_chain:
+            print("  Verification chain:")
+            for v in auth.verification_chain:
+                print(f"    {colorize('+', Colors.GREEN)} {v}")
+        if auth.gaps:
+            print("  Provenance gaps:")
+            for g in auth.gaps:
+                print(f"    {colorize('-', Colors.YELLOW)} {g}")
+        print(f"  {auth.summary}")
+        print()
+
     # Dimension details (verbose mode)
     if verbose:
         print(colorize("DIMENSION DETAILS:", Colors.BOLD))
@@ -144,6 +169,7 @@ if HAS_CLICK:
     @click.option("--quantization", is_flag=True, help="Enable JPEG quantization table forensics")
     @click.option("--aigen", is_flag=True, help="Enable AI generation indicator analysis")
     @click.option("--video/--no-video", default=True, help="Enable/disable video and cross-modal analysis")
+    @click.option("--authenticity-mode", is_flag=True, help="Enable authenticity burden mode (prove it's authentic)")
     def analyze(
         file_path: str,
         output_json: bool,
@@ -163,7 +189,8 @@ if HAS_CLICK:
         perspective: bool,
         quantization: bool,
         aigen: bool,
-        video: bool
+        video: bool,
+        authenticity_mode: bool
     ):
         """
         Analyze a media file for manipulation.
@@ -199,6 +226,8 @@ if HAS_CLICK:
             wu analyze photo.jpg --quantization  (JPEG quantization table forensics)
 
             wu analyze photo.jpg --aigen  (AI generation indicator analysis)
+
+            wu analyze photo.jpg --authenticity-mode  (prove authenticity vs detect fakery)
         """
         analyzer = WuAnalyzer(
             enable_metadata=not no_metadata,
@@ -215,7 +244,8 @@ if HAS_CLICK:
             enable_perspective=perspective,
             enable_quantization=quantization,
             enable_aigen=aigen,
-            enable_video=video
+            enable_video=video,
+            authenticity_mode=authenticity_mode
         )
 
         if not analyzer.is_supported(file_path):
@@ -300,12 +330,14 @@ if HAS_CLICK:
     @click.option("--examiner", type=str, help="Examiner name for report")
     @click.option("--case", type=str, help="Case/matter number")
     @click.option("--notes", type=str, help="Additional examiner notes")
+    @click.option("--authenticity-mode", is_flag=True, help="Enable authenticity burden mode")
     def report(
         file_path: str,
         output: Optional[str],
         examiner: Optional[str],
         case: Optional[str],
-        notes: Optional[str]
+        notes: Optional[str],
+        authenticity_mode: bool
     ):
         """
         Generate a court-ready PDF forensic report.
@@ -320,7 +352,7 @@ if HAS_CLICK:
         """
         from .report import ForensicReportGenerator
 
-        analyzer = WuAnalyzer()
+        analyzer = WuAnalyzer(authenticity_mode=authenticity_mode)
         result = analyzer.analyze(file_path)
 
         # Default output path

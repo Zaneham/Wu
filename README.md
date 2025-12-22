@@ -182,6 +182,41 @@ Unlike binary classifiers, Wu reports structured uncertainty:
 | `SUSPICIOUS` | Anomalies that warrant investigation |
 | `UNCERTAIN` | Insufficient data for analysis |
 
+## Authenticity Burden Mode
+
+By default, Wu asks "is this manipulated?" - looking for evidence of fakery.
+With `--authenticity-mode`, Wu asks "can we prove this is authentic?" -
+looking for positive verification.
+
+### When to Use
+
+- Supply chain verification (is this the original file?)
+- Legal chain of custody requirements
+- Provenance authentication for high-value media
+- When absence of evidence matters
+
+### Assessment States
+
+| State | Meaning |
+|-------|---------|
+| `VERIFIED_AUTHENTIC` | Strong provenance chain, multiple verifications |
+| `LIKELY_AUTHENTIC` | Consistent across dimensions, partial verification |
+| `UNVERIFIED` | No red flags, but no positive verification either |
+| `INSUFFICIENT_DATA` | Cannot assess authenticity |
+| `COMPROMISED` | Evidence of tampering detected |
+
+### Example
+
+```bash
+# Standard mode - looking for manipulation
+wu analyze photo.jpg
+
+# Authenticity mode - proving chain of custody
+wu analyze photo.jpg --authenticity-mode
+```
+
+The key difference is epistemic: in standard mode, missing C2PA credentials are neutral (most files lack them). In authenticity mode, missing provenance is a gap that reduces verification confidence.
+
 ## Court Admissibility - in progress.
 
 Wu is designed with the Daubert standard in mind:

@@ -29,6 +29,8 @@ from .state import (
     Confidence,
     OverallAssessment,
     WuAnalysis,
+    AuthenticityAssessment,
+    AuthenticityResult,
 )
 
 
@@ -384,3 +386,189 @@ class EpistemicAggregator:
             parts.append(corr.narrative)
 
         return "\n".join(parts)
+
+# =============================================================================
+# AUTHENTICITY BURDEN AGGREGATOR
+# =============================================================================
+
+# Key dimensions for authenticity verification
+KEY_VERIFICATION_DIMENSIONS = {
+    "c2pa": {
+        "weight": 1.0,
+        "verified_states": [DimensionState.VERIFIED],
+        "gap_states": [DimensionState.MISSING, DimensionState.UNCERTAIN],
+        "description": "Content credentials (C2PA)",
+    },
+    "metadata": {
+        "weight": 0.8,
+        "verified_states": [DimensionState.CONSISTENT],
+        "gap_states": [DimensionState.UNCERTAIN],
+        "description": "Device attribution via EXIF",
+    },
+    "prnu": {
+        "weight": 0.9,
+        "verified_states": [DimensionState.CONSISTENT],
+        "gap_states": [DimensionState.UNCERTAIN],
+        "description": "Sensor fingerprint (PRNU)",
+    },
+    "quantization": {
+        "weight": 0.6,
+        "verified_states": [DimensionState.CONSISTENT],
+        "gap_states": [DimensionState.UNCERTAIN],
+        "description": "Compression history",
+    },
+}
+
+
+class AuthenticityAggregator:
+    """
+    Aggregates findings with authenticity burden (prove it is real).
+
+    Inverts the epistemic framing from "prove it is fake" to "prove it is authentic".
+    In this mode, missing provenance is a gap rather than neutral, and the focus
+    is on building a verification chain rather than detecting manipulation.
+    """
+
+    def aggregate(self, results: List[DimensionResult]) -> AuthenticityResult:
+        """
+        Aggregate dimension results into authenticity assessment.
+
+        Logic:
+        1. Any INCONSISTENT/TAMPERED/INVALID -> AUTHENTICITY_COMPROMISED
+        2. Check verification chain (what dimensions positively verify)
+        3. Check gaps (what provenance is missing)
+        4. Score based on verified vs gaps
+        """
+        if not results:
+            return AuthenticityResult(
+                assessment=AuthenticityAssessment.INSUFFICIENT_DATA,
+                confidence=0.0,
+                verification_chain=[],
+                gaps=["No analysis dimensions available"],
+                summary="Insufficient data to assess authenticity.",
+            )
+
+        # Check for compromising evidence first
+        compromised_findings = []
+        for r in results:
+            if r.is_problematic:
+                for ev in r.evidence:
+                    if ev.contradiction:
+                        compromised_findings.append(
+                            f"{r.dimension}: {ev.finding} - {ev.contradiction}"
+                        )
+                    else:
+                        compromised_findings.append(f"{r.dimension}: {ev.finding}")
+
+        if compromised_findings:
+            return AuthenticityResult(
+                assessment=AuthenticityAssessment.AUTHENTICITY_COMPROMISED,
+                confidence=1.0,
+                verification_chain=[],
+                gaps=[],
+                summary=(
+                    f"Authenticity cannot be verified due to detected tampering: "
+                    f"{'; '.join(compromised_findings[:3])}"
+                ),
+            )
+
+        # Build verification chain and gaps
+        verification_chain = []
+        gaps = []
+        verified_weight = 0.0
+        total_weight = 0.0
+
+        for dim_name, dim_info in KEY_VERIFICATION_DIMENSIONS.items():
+            dim_result = next(
+                (r for r in results if r.dimension == dim_name),
+                None
+            )
+            total_weight += dim_info["weight"]
+
+            if dim_result is None:
+                gaps.append(f"No {dim_info['description']} analysis performed")
+            elif dim_result.state in dim_info["verified_states"]:
+                detail = self._get_verification_detail(dim_result)
+                verification_chain.append(f"{dim_info['description']} {detail}")
+                verified_weight += dim_info["weight"]
+            elif dim_result.state in dim_info["gap_states"]:
+                gaps.append(f"No {dim_info['description']} available")
+
+        confidence = verified_weight / total_weight if total_weight > 0 else 0.0
+        assessment = self._determine_assessment(verification_chain, gaps, confidence)
+        summary = self._generate_summary(assessment, verification_chain, gaps, confidence)
+
+        return AuthenticityResult(
+            assessment=assessment,
+            confidence=round(confidence, 2),
+            verification_chain=verification_chain,
+            gaps=gaps,
+            summary=summary,
+        )
+
+    def _get_verification_detail(self, result: DimensionResult) -> str:
+        """Extract a brief detail from a verified dimension."""
+        if result.evidence:
+            finding = result.evidence[0].finding
+            if len(finding) > 60:
+                finding = finding[:57] + "..."
+            return f"verified ({finding})"
+        return "verified"
+
+    def _determine_assessment(
+        self,
+        verification_chain: List[str],
+        gaps: List[str],
+        confidence: float
+    ) -> AuthenticityAssessment:
+        """Determine authenticity assessment from verification state."""
+        num_verified = len(verification_chain)
+        has_c2pa = any("C2PA" in v or "credentials" in v.lower() for v in verification_chain)
+
+        if has_c2pa and num_verified >= 3:
+            return AuthenticityAssessment.VERIFIED_AUTHENTIC
+        elif num_verified >= 2 and confidence >= 0.6:
+            return AuthenticityAssessment.LIKELY_AUTHENTIC
+        elif num_verified >= 1:
+            return AuthenticityAssessment.LIKELY_AUTHENTIC
+        elif len(gaps) >= 3:
+            return AuthenticityAssessment.UNVERIFIED
+        elif confidence < 0.2:
+            return AuthenticityAssessment.INSUFFICIENT_DATA
+        else:
+            return AuthenticityAssessment.UNVERIFIED
+
+    def _generate_summary(
+        self,
+        assessment: AuthenticityAssessment,
+        verification_chain: List[str],
+        gaps: List[str],
+        confidence: float
+    ) -> str:
+        """Generate human-readable summary of authenticity assessment."""
+        parts = []
+
+        if assessment == AuthenticityAssessment.VERIFIED_AUTHENTIC:
+            parts.append(
+                f"Strong provenance chain established through "
+                f"{len(verification_chain)} verification sources."
+            )
+        elif assessment == AuthenticityAssessment.LIKELY_AUTHENTIC:
+            parts.append(
+                f"File shows consistency across {len(verification_chain)} "
+                f"of {len(verification_chain) + len(gaps)} key verification dimensions."
+            )
+        elif assessment == AuthenticityAssessment.UNVERIFIED:
+            parts.append("No positive verification of authenticity could be established.")
+        elif assessment == AuthenticityAssessment.INSUFFICIENT_DATA:
+            parts.append("Insufficient data available to assess authenticity.")
+        else:
+            parts.append("Evidence of tampering detected.")
+
+        if gaps and assessment != AuthenticityAssessment.AUTHENTICITY_COMPROMISED:
+            parts.append(f"Provenance gaps: {'; '.join(gaps[:3])}")
+            if len(gaps) > 3:
+                parts.append(f"(and {len(gaps) - 3} more)")
+
+        return " ".join(parts)
+

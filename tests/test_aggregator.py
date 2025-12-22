@@ -8,6 +8,7 @@ into an overall assessment with proper epistemic reasoning.
 import pytest
 from wu.aggregator import (
     EpistemicAggregator,
+    AuthenticityAggregator,
     CorroboratingEvidence,
     CORROBORATION_CATEGORIES,
     get_relevant_categories,
@@ -18,6 +19,7 @@ from wu.state import (
     Confidence,
     Evidence,
     OverallAssessment,
+    AuthenticityAssessment,
 )
 
 
@@ -622,3 +624,280 @@ class TestSplicingCorroboration:
 
         categories = [c.category for c in corroborations]
         assert "splicing_detected" in categories
+
+class TestAuthenticityAggregator:
+    """Test AuthenticityAggregator with inverted epistemic logic."""
+
+    @pytest.fixture
+    def aggregator(self):
+        return AuthenticityAggregator()
+
+    def test_empty_results_insufficient_data(self, aggregator):
+        """Empty results return INSUFFICIENT_DATA."""
+        result = aggregator.aggregate([])
+        assert result.assessment == AuthenticityAssessment.INSUFFICIENT_DATA
+        assert result.confidence == 0.0
+
+    def test_compromised_on_tampering(self, aggregator):
+        """Any INCONSISTENT dimension means AUTHENTICITY_COMPROMISED."""
+        results = [
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.INCONSISTENT,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Device mismatch",
+                        explanation="Claims iPhone but PRNU mismatch",
+                        contradiction="Sensor fingerprint does not match claimed device"
+                    )
+                ]
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert result.assessment == AuthenticityAssessment.AUTHENTICITY_COMPROMISED
+        assert result.confidence == 1.0
+        assert "tampering" in result.summary.lower()
+
+    def test_verified_authentic_with_c2pa_and_consistent(self, aggregator):
+        """C2PA VERIFIED + other consistent dims -> VERIFIED_AUTHENTIC."""
+        results = [
+            DimensionResult(
+                dimension="c2pa",
+                state=DimensionState.VERIFIED,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Valid content credentials",
+                        explanation="C2PA signature verified"
+                    )
+                ]
+            ),
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Device attribution confirmed",
+                        explanation="EXIF matches claimed device"
+                    )
+                ]
+            ),
+            DimensionResult(
+                dimension="prnu",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Sensor fingerprint matches",
+                        explanation="PRNU pattern consistent"
+                    )
+                ]
+            ),
+            DimensionResult(
+                dimension="quantization",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.MEDIUM,
+                evidence=[
+                    Evidence(
+                        finding="Single compression pass",
+                        explanation="No recompression detected"
+                    )
+                ]
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert result.assessment == AuthenticityAssessment.VERIFIED_AUTHENTIC
+        assert result.confidence >= 0.8
+        assert len(result.verification_chain) >= 3
+
+    def test_likely_authentic_partial_verification(self, aggregator):
+        """Some verified dimensions without C2PA -> LIKELY_AUTHENTIC."""
+        results = [
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Device attribution confirmed",
+                        explanation="EXIF matches claimed device"
+                    )
+                ]
+            ),
+            DimensionResult(
+                dimension="quantization",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.MEDIUM,
+                evidence=[
+                    Evidence(
+                        finding="Single compression pass",
+                        explanation="No recompression detected"
+                    )
+                ]
+            ),
+            DimensionResult(
+                dimension="c2pa",
+                state=DimensionState.MISSING,
+                confidence=Confidence.NA,
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert result.assessment == AuthenticityAssessment.LIKELY_AUTHENTIC
+        assert len(result.verification_chain) >= 1
+        assert len(result.gaps) >= 1
+
+    def test_unverified_no_provenance(self, aggregator):
+        """All MISSING or UNCERTAIN -> UNVERIFIED."""
+        results = [
+            DimensionResult(
+                dimension="c2pa",
+                state=DimensionState.MISSING,
+                confidence=Confidence.NA,
+            ),
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.UNCERTAIN,
+                confidence=Confidence.NA,
+            ),
+            DimensionResult(
+                dimension="prnu",
+                state=DimensionState.UNCERTAIN,
+                confidence=Confidence.NA,
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert result.assessment in (
+            AuthenticityAssessment.UNVERIFIED,
+            AuthenticityAssessment.INSUFFICIENT_DATA
+        )
+        assert len(result.gaps) >= 2
+
+    def test_confidence_scoring(self, aggregator):
+        """Confidence reflects verification coverage."""
+        # Half verified, half gaps
+        results = [
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.HIGH,
+            ),
+            DimensionResult(
+                dimension="c2pa",
+                state=DimensionState.MISSING,
+                confidence=Confidence.NA,
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        # Metadata is weight 0.8, c2pa is weight 1.0, so coverage ~ 0.8/1.8 ~ 0.44
+        assert 0.0 < result.confidence < 1.0
+
+    def test_verification_chain_built(self, aggregator):
+        """Verification chain lists what was verified."""
+        results = [
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Canon EOS R5 confirmed",
+                        explanation="All metadata consistent"
+                    )
+                ]
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert len(result.verification_chain) >= 1
+        assert any("EXIF" in v or "Device" in v for v in result.verification_chain)
+
+    def test_gaps_identified(self, aggregator):
+        """Gaps list what provenance is missing."""
+        results = [
+            DimensionResult(
+                dimension="c2pa",
+                state=DimensionState.MISSING,
+                confidence=Confidence.NA,
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert len(result.gaps) >= 1
+        assert any("C2PA" in g or "credentials" in g.lower() for g in result.gaps)
+
+    def test_tampered_overrides_verified(self, aggregator):
+        """TAMPERED state triggers COMPROMISED even with other verified dims."""
+        results = [
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.HIGH,
+            ),
+            DimensionResult(
+                dimension="c2pa",
+                state=DimensionState.TAMPERED,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Signature invalid",
+                        explanation="Content modified after signing",
+                        contradiction="Hash mismatch"
+                    )
+                ]
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert result.assessment == AuthenticityAssessment.AUTHENTICITY_COMPROMISED
+
+    def test_invalid_c2pa_is_compromised(self, aggregator):
+        """INVALID C2PA credentials means COMPROMISED."""
+        results = [
+            DimensionResult(
+                dimension="c2pa",
+                state=DimensionState.INVALID,
+                confidence=Confidence.HIGH,
+                evidence=[
+                    Evidence(
+                        finding="Invalid certificate chain",
+                        explanation="Signing certificate not trusted"
+                    )
+                ]
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert result.assessment == AuthenticityAssessment.AUTHENTICITY_COMPROMISED
+
+    def test_summary_generated(self, aggregator):
+        """Summary should be a non-empty string."""
+        results = [
+            DimensionResult(
+                dimension="metadata",
+                state=DimensionState.CONSISTENT,
+                confidence=Confidence.HIGH,
+            ),
+        ]
+        result = aggregator.aggregate(results)
+        assert result.summary
+        assert len(result.summary) > 10
+
+
+class TestAuthenticityResultSerialization:
+    """Test AuthenticityResult serialization."""
+
+    def test_to_dict(self):
+        """AuthenticityResult should serialize to dict."""
+        from wu.state import AuthenticityResult
+
+        result = AuthenticityResult(
+            assessment=AuthenticityAssessment.LIKELY_AUTHENTIC,
+            confidence=0.75,
+            verification_chain=["Metadata verified", "Quantization clean"],
+            gaps=["No C2PA credentials"],
+            summary="Partial verification achieved",
+        )
+        d = result.to_dict()
+        assert d["assessment"] == "likely_authentic"
+        assert d["confidence"] == 0.75
+        assert len(d["verification_chain"]) == 2
+        assert len(d["gaps"]) == 1
+

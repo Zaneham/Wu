@@ -28,9 +28,11 @@ from .state import (
     Confidence,
     Evidence,
     CorrelationWarning,
+    AuthenticityAssessment,
+    AuthenticityResult,
 )
 from .analyzer import WuAnalyzer
-from .aggregator import EpistemicAggregator
+from .aggregator import EpistemicAggregator, AuthenticityAggregator
 from .correlator import DimensionCorrelator
 from .report import ForensicReportGenerator, generate_report
 from .dimensions import (
@@ -57,6 +59,7 @@ __all__ = [
     # Main interface
     "WuAnalyzer",
     "EpistemicAggregator",
+    "AuthenticityAggregator",
     "ForensicReportGenerator",
     "generate_report",
     # State model
@@ -67,6 +70,8 @@ __all__ = [
     "Confidence",
     "Evidence",
     "CorrelationWarning",
+    "AuthenticityAssessment",
+    "AuthenticityResult",
     "DimensionCorrelator",
     # Dimension analysers
     "MetadataAnalyzer",

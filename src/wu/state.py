@@ -119,6 +119,44 @@ class OverallAssessment(Enum):
     INSUFFICIENT_DATA = "insufficient_data"
 
 
+class AuthenticityAssessment(Enum):
+    """
+    Assessment states for authenticity burden mode.
+
+    Inverts the epistemic framing from "prove it's fake" to "prove it's authentic".
+    Missing provenance becomes a gap rather than neutral.
+    """
+    VERIFIED_AUTHENTIC = "verified_authentic"
+    LIKELY_AUTHENTIC = "likely_authentic"
+    UNVERIFIED = "unverified"
+    INSUFFICIENT_DATA = "insufficient_data"
+    AUTHENTICITY_COMPROMISED = "compromised"
+
+
+@dataclass
+class AuthenticityResult:
+    """
+    Result of authenticity burden analysis.
+
+    Provides a verification-focused view of the analysis, tracking what
+    provenance was confirmed and what gaps remain.
+    """
+    assessment: AuthenticityAssessment
+    confidence: float
+    verification_chain: List[str]
+    gaps: List[str]
+    summary: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "assessment": self.assessment.value,
+            "confidence": self.confidence,
+            "verification_chain": self.verification_chain,
+            "gaps": self.gaps,
+            "summary": self.summary,
+        }
+
+
 @dataclass
 class CorrelationWarning:
     """
@@ -181,6 +219,7 @@ class WuAnalysis:
     findings_summary: List[str] = field(default_factory=list)
     corroboration_summary: Optional[str] = None  # Narrative of convergent findings
     correlation_warnings: List[CorrelationWarning] = field(default_factory=list)  # Cross-dimension conflicts
+    authenticity: Optional["AuthenticityResult"] = None  # Only populated in authenticity mode
 
     @property
     def dimensions(self) -> List[DimensionResult]:
@@ -209,7 +248,7 @@ class WuAnalysis:
         return len(dims) > 0 and all(d.is_clean for d in dims)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "file_path": self.file_path,
             "file_hash": self.file_hash,
             "analyzed_at": self.analyzed_at.isoformat(),
@@ -238,6 +277,9 @@ class WuAnalysis:
                 "lipsync": self.lipsync.to_dict() if self.lipsync else None,
             }
         }
+        if self.authenticity:
+            result["authenticity"] = self.authenticity.to_dict()
+        return result
 
     def to_json(self) -> str:
         import json

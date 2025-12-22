@@ -39,7 +39,7 @@ try:
 except ImportError:
     HAS_REPORTLAB = False
 
-from .state import WuAnalysis, DimensionState, OverallAssessment
+from .state import WuAnalysis, DimensionState, OverallAssessment, CorrelationWarning, AuthenticityAssessment
 
 
 class ForensicReportGenerator:
@@ -159,6 +159,16 @@ class ForensicReportGenerator:
             spaceAfter=5,
         ))
 
+        # Finding header
+        styles.add(ParagraphStyle(
+            name='FindingHeader',
+            parent=styles['Normal'],
+            fontSize=10,
+            fontName='Helvetica-Bold',
+            spaceBefore=8,
+            spaceAfter=4,
+        ))
+
         # Disclaimer
         styles.add(ParagraphStyle(
             name='Disclaimer',
@@ -211,6 +221,11 @@ class ForensicReportGenerator:
         story.extend(self._build_executive_summary(analysis))
         story.append(Spacer(1, 0.2*inch))
 
+        # Authenticity verification (if present)
+        if analysis.authenticity:
+            story.extend(self._build_authenticity_verification(analysis))
+            story.append(Spacer(1, 0.2*inch))
+
         # File identification
         story.extend(self._build_file_identification(analysis))
         story.append(Spacer(1, 0.2*inch))
@@ -227,6 +242,14 @@ class ForensicReportGenerator:
             story.extend(self._build_corroboration(analysis, section_num))
             story.append(Spacer(1, 0.2*inch))
             section_num += 1
+
+        # Cross-dimension conflicts (if any critical/high warnings)
+        if analysis.correlation_warnings:
+            conflict_section = self._build_correlation_conflicts(analysis, section_num)
+            if conflict_section:
+                story.extend(conflict_section)
+                story.append(Spacer(1, 0.2*inch))
+                section_num += 1
 
         # Detailed findings
         story.extend(self._build_detailed_findings(analysis, section_num))
@@ -431,6 +454,105 @@ class ForensicReportGenerator:
 
         return elements
 
+
+    def _build_authenticity_verification(self, analysis: WuAnalysis) -> List:
+        """Build authenticity verification section for authenticity burden mode."""
+        elements = []
+
+        auth = analysis.authenticity
+        if not auth:
+            return elements
+
+        elements.append(Paragraph(
+            "AUTHENTICITY VERIFICATION",
+            self.styles['SectionHeader']
+        ))
+
+        # Assessment banner
+        assessment_colors = {
+            AuthenticityAssessment.VERIFIED_AUTHENTIC: '#0d7377',
+            AuthenticityAssessment.LIKELY_AUTHENTIC: '#2e7d32',
+            AuthenticityAssessment.UNVERIFIED: '#ff8c00',
+            AuthenticityAssessment.INSUFFICIENT_DATA: '#666666',
+            AuthenticityAssessment.AUTHENTICITY_COMPROMISED: '#c70039',
+        }
+        color = assessment_colors.get(auth.assessment, '#666666')
+
+        assessment_display = {
+            AuthenticityAssessment.VERIFIED_AUTHENTIC: 'VERIFIED AUTHENTIC',
+            AuthenticityAssessment.LIKELY_AUTHENTIC: 'LIKELY AUTHENTIC',
+            AuthenticityAssessment.UNVERIFIED: 'UNVERIFIED',
+            AuthenticityAssessment.INSUFFICIENT_DATA: 'INSUFFICIENT DATA',
+            AuthenticityAssessment.AUTHENTICITY_COMPROMISED: 'AUTHENTICITY COMPROMISED',
+        }
+        assessment_text = assessment_display.get(auth.assessment, auth.assessment.value)
+
+        elements.append(Paragraph(
+            f"<font color='{color}'><b>Assessment: {assessment_text}</b></font>",
+            self.styles['WuBodyText']
+        ))
+
+        elements.append(Paragraph(
+            f"<b>Verification Confidence:</b> {auth.confidence:.0%}",
+            self.styles['WuBodyText']
+        ))
+
+        elements.append(Spacer(1, 0.1*inch))
+
+        # Verification chain
+        if auth.verification_chain:
+            elements.append(Paragraph(
+                "<b>Verification Chain:</b>",
+                self.styles['WuBodyText']
+            ))
+            elements.append(Paragraph(
+                "The following sources provide positive verification of provenance:",
+                self.styles['WuBodyText']
+            ))
+            for item in auth.verification_chain:
+                elements.append(Paragraph(
+                    f"<font color='#0d7377'>+</font> {item}",
+                    self.styles['FindingClean']
+                ))
+
+        # Provenance gaps
+        if auth.gaps:
+            elements.append(Spacer(1, 0.1*inch))
+            elements.append(Paragraph(
+                "<b>Provenance Gaps:</b>",
+                self.styles['WuBodyText']
+            ))
+            elements.append(Paragraph(
+                "The following provenance information is missing or unavailable:",
+                self.styles['WuBodyText']
+            ))
+            for gap in auth.gaps:
+                elements.append(Paragraph(
+                    f"<font color='#ff8c00'>-</font> {gap}",
+                    self.styles['FindingSuspicious']
+                ))
+
+        # Summary
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(Paragraph(
+            f"<b>Summary:</b> {auth.summary}",
+            self.styles['WuBodyText']
+        ))
+
+        # Explanation of authenticity mode
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(Paragraph(
+            "<i>This analysis was performed in authenticity burden mode, which inverts "
+            "the standard forensic framing. Rather than asking 'is there evidence of fakery?', "
+            "this mode asks 'can we positively verify authenticity?'. Missing provenance "
+            "(such as absent C2PA credentials) is treated as a gap rather than neutral, "
+            "reflecting the higher evidentiary standard required for chain of custody "
+            "verification.</i>",
+            self.styles['Disclaimer']
+        ))
+
+        return elements
+
     def _build_corroboration(self, analysis: WuAnalysis, section_num: int = 4) -> List:
         """Build corroborating evidence section."""
         elements = []
@@ -464,6 +586,61 @@ class ForensicReportGenerator:
                             para.strip(),
                             self.styles['WuBodyText']
                         ))
+
+        return elements
+
+
+    def _build_correlation_conflicts(self, analysis: WuAnalysis, section_num: int) -> List:
+        """Build cross-dimension conflicts section for critical/high warnings."""
+        elements = []
+
+        # Filter for critical and high severity warnings only
+        serious_warnings = [
+            w for w in analysis.correlation_warnings
+            if w.severity in ('critical', 'high')
+        ]
+
+        if not serious_warnings:
+            return elements
+
+        elements.append(Paragraph(
+            f"{section_num}. CROSS-DIMENSION CONFLICTS",
+            self.styles['SectionHeader']
+        ))
+
+        elements.append(Paragraph(
+            "The following conflicts were detected when cross-referencing findings "
+            "across independent analytical dimensions. When separate analyses that "
+            "examine different technical properties of a file produce contradictory "
+            "findings, this is forensically significant and warrants careful consideration.",
+            self.styles['WuBodyText']
+        ))
+
+        elements.append(Spacer(1, 0.1*inch))
+
+        for i, warning in enumerate(serious_warnings, 1):
+            # Severity indicator
+            severity_color = 'red' if warning.severity == 'critical' else 'orange'
+            severity_label = warning.severity.upper()
+
+            elements.append(Paragraph(
+                f"<b>Conflict {i}: [{severity_label}]</b>",
+                self.styles['FindingHeader']
+            ))
+
+            elements.append(Paragraph(
+                warning.finding,
+                self.styles['WuBodyText']
+            ))
+
+            # Dimensions involved
+            dims_text = ", ".join(warning.dimensions)
+            elements.append(Paragraph(
+                f"<i>Dimensions involved: {dims_text}</i>",
+                self.styles['WuBodyText']
+            ))
+
+            elements.append(Spacer(1, 0.1*inch))
 
         return elements
 
