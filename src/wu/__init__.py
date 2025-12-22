@@ -27,9 +27,11 @@ from .state import (
     OverallAssessment,
     Confidence,
     Evidence,
+    CorrelationWarning,
 )
 from .analyzer import WuAnalyzer
 from .aggregator import EpistemicAggregator
+from .correlator import DimensionCorrelator
 from .report import ForensicReportGenerator, generate_report
 from .dimensions import (
     MetadataAnalyzer,
@@ -64,6 +66,8 @@ __all__ = [
     "OverallAssessment",
     "Confidence",
     "Evidence",
+    "CorrelationWarning",
+    "DimensionCorrelator",
     # Dimension analysers
     "MetadataAnalyzer",
     "C2PAAnalyzer",

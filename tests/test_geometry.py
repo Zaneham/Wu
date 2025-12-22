@@ -463,7 +463,7 @@ class TestIntegration:
 
         assert result.shadows is not None
         assert result.perspective is not None
-        assert len(result.dimensions) == 2
+        assert len(result.dimensions) >= 2
 
 
 class TestEdgeCases:

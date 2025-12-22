@@ -120,6 +120,31 @@ class OverallAssessment(Enum):
 
 
 @dataclass
+class CorrelationWarning:
+    """
+    Warning generated when findings across dimensions conflict.
+
+    Cross-referencing dimensions can reveal manipulations that
+    individual analyses might miss (e.g., metadata says Canon
+    but PRNU fingerprint matches iPhone).
+    """
+    severity: str              # "critical", "high", "medium", "low"
+    category: str              # "device_mismatch", "temporal_anomaly", etc.
+    dimensions: List[str]      # Which dimensions conflict
+    finding: str               # Human-readable description
+    details: Dict[str, Any] = field(default_factory=dict)  # Supporting data
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "severity": self.severity,
+            "category": self.category,
+            "dimensions": self.dimensions,
+            "finding": self.finding,
+            "details": self.details,
+        }
+
+
+@dataclass
 class WuAnalysis:
     """
     Complete analysis result from Wu.
@@ -155,6 +180,7 @@ class WuAnalysis:
     overall: OverallAssessment = OverallAssessment.INSUFFICIENT_DATA
     findings_summary: List[str] = field(default_factory=list)
     corroboration_summary: Optional[str] = None  # Narrative of convergent findings
+    correlation_warnings: List[CorrelationWarning] = field(default_factory=list)  # Cross-dimension conflicts
 
     @property
     def dimensions(self) -> List[DimensionResult]:
@@ -191,6 +217,7 @@ class WuAnalysis:
             "overall_assessment": self.overall.value,
             "findings_summary": self.findings_summary,
             "corroboration_summary": self.corroboration_summary,
+            "correlation_warnings": [w.to_dict() for w in self.correlation_warnings],
             "dimensions": {
                 "metadata": self.metadata.to_dict() if self.metadata else None,
                 "visual": self.visual.to_dict() if self.visual else None,

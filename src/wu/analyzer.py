@@ -46,6 +46,7 @@ from .dimensions import (
 )
 from .video.analyzer import VideoAnalyzer
 from .dimensions.lipsync import LipSyncAnalyzer
+from .correlator import DimensionCorrelator
 
 from importlib.metadata import version as _get_version, PackageNotFoundError
 
@@ -303,6 +304,16 @@ class WuAnalyzer:
         analysis.corroboration_summary = self.aggregator.generate_corroboration_summary(
             dimension_results
         )
+
+        # Run cross-dimension correlation checks
+        correlator = DimensionCorrelator()
+        analysis.correlation_warnings = correlator.correlate(analysis)
+
+        # Escalate overall assessment if critical correlations found
+        if any(w.severity == "critical" for w in analysis.correlation_warnings):
+            from .state import OverallAssessment
+            if analysis.overall == OverallAssessment.NO_ANOMALIES:
+                analysis.overall = OverallAssessment.INCONSISTENCIES_DETECTED
 
         return analysis
 
