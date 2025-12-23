@@ -3,7 +3,7 @@
 ;
 ; ZH:
 ; Implements the inverse transform specified in ISO/IEC 14496-10 (H.264).
-; Optimized for x86-64 using AVX2.
+; Optimised for x86-64 using AVX2.
 ;
 ; The 4x4 inverse transform is:
 ;   W = T * H * T'
@@ -127,8 +127,8 @@ wu_h264_idct_4x4_avx2:
     vpsubsw xmm4, xmm7, xmm8    ; r2''
     vpsubsw xmm5, xmm6, xmm9    ; r3''
 
-    ; Final normalization (divide by 64 and add 32 for rounding)
-    ; In H.264 residual IDCT, the scaling is often combined with quantization.
+    ; Final normalisation (divide by 64 and add 32 for rounding)
+    ; In H.264 residual IDCT, the scaling is often combined with quantisation.
     ; This is the core transform. We add rounding and shift.
     
     vmovdqa xmm6, [rel .round]

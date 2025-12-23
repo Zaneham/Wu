@@ -64,7 +64,7 @@ wu_asm_compute_blockiness:
     mov [rbp - 36], eax
     mov [rbp - 40], ecx
     
-    ; Initialize accumulators
+    ; Initialise accumulators
     vxorpd ymm0, ymm0, ymm0     ; total_diff accumulator
     xor r12d, r12d              ; count = 0
     
@@ -224,7 +224,7 @@ wu_asm_blockiness_all_offsets:
 %endif
     mov [rbp - 40], rax
     
-    ; Initialize best tracking
+    ; Initialise best tracking
     mov dword [rbp - 44], 0     ; best_idx = 0
     vmovsd xmm15, [rel .max_double]  ; best_score = MAX
     

@@ -38,7 +38,7 @@ extern wu_asm_hsum_f32
 ; ============================================================================
 ; SIMILARITY MATCH - Proprietary Algorithm
 ; ============================================================================
-; Computes similarity between two normalized feature vectors.
+; Computes similarity between two normalised feature vectors.
 ; Uses a proprietary metric that combines cosine similarity with
 ; additional weighting factors for forensic accuracy.
 ;
@@ -50,7 +50,7 @@ extern wu_asm_hsum_f32
 ; Algorithm (proprietary):
 ;   1. Compute dot product: d = sum(a[i] * b[i])
 ;   2. Apply proprietary transformation for robustness
-;   3. Return normalized score
+;   3. Return normalised score
 ; ============================================================================
 global wu_asm_similarity_match
 wu_asm_similarity_match:
@@ -65,7 +65,7 @@ wu_asm_similarity_match:
     mov r11, ARG2           ; features_b
     mov r12, ARG3           ; n_features
     
-    ; Initialize accumulators
+    ; Initialise accumulators
     vxorps ymm0, ymm0, ymm0 ; Dot product accumulator
     vxorps ymm1, ymm1, ymm1 ; Norm A accumulator
     vxorps ymm2, ymm2, ymm2 ; Norm B accumulator

@@ -301,8 +301,31 @@ class MetadataAnalyzer:
 
     def _check_ai_signatures(self, metadata: Dict[str, Any]) -> Optional[Evidence]:
         """Check for AI generation signatures."""
-        # Check all metadata values
-        all_values = " ".join(str(v) for v in metadata.values()).lower()
+        # Only check text-based metadata fields, not binary blobs
+        # Binary fields like ImageSourceData (37724) can contain false positives
+        text_fields = [
+            "Software", "ProcessingSoftware", "CreatorTool", "Creator",
+            "Artist", "Copyright", "ImageDescription", "UserComment",
+            "XPComment", "XPAuthor", "XPKeywords", "XPSubject", "XPTitle",
+            "Make", "Model", "HostComputer", "DocumentName",
+            "XMLPacket", "parameters", "Comment", "Description",
+        ]
+
+        # Collect text from relevant fields only (skip large binary blobs)
+        text_parts = []
+        for key, value in metadata.items():
+            val_str = str(value)
+            # Skip binary blobs (large values or those with many non-printable chars)
+            if len(val_str) > 10000:
+                continue
+            # Check if it's a known text field or a small value
+            if key in text_fields or len(val_str) < 500:
+                # Skip values with many non-printable characters (binary data)
+                printable_ratio = sum(1 for c in val_str if c.isprintable() or c.isspace()) / max(len(val_str), 1)
+                if printable_ratio > 0.9:
+                    text_parts.append(val_str.lower())
+
+        all_values = " ".join(text_parts)
 
         for sig in self.AI_SIGNATURES:
             if sig in all_values:

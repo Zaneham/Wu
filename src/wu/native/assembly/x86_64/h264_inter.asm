@@ -4,7 +4,7 @@
 ; Implements the 6-tap filter for half-pixel interpolation:
 ;   H = (A - 5B + 20C + 20D - 5E + F + 16) >> 5
 ;
-; optimized for x86-64 using AVX2.
+; Optimised for x86-64 using AVX2.
 ; -----------------------------------------------------------------------------
 
 %include "common.asm"
