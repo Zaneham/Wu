@@ -237,7 +237,7 @@ Wu is designed with the Daubert standard in mind:
 
 ## AI Usage
 
-This project uses Claude (Anthropic) to assist with summarising test results across 700+ test cases. All code, forensic methodology, and documentation are human-authored by me.
+This project uses Claude (Anthropic) to assist with summarising test results across 700+ test cases and the occasional push to Github. All code, forensic methodology, and documentation are human-authored by me.
 
 ## Contact
 
