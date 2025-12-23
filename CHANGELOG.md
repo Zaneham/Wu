@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2025-12-23
+
+### Fixed
+- **AI Signature False Positives**: Fixed bug where AI generator signatures (e.g. "flux") were incorrectly detected in binary metadata blobs like Photoshop ImageSourceData. Now only scans text-based metadata fields with >90% printable characters.
+
+### Changed
+- **British English in Assembly**: Corrected US English spellings in assembly file comments (optimised, normalised, initialised).
+
+## [1.5.0] - 2025-12-23
+
+### Added
+- **Authenticity Burden Mode**: New `--authenticity-mode` flag inverts the epistemic framing from "prove it's fake" to "prove it's authentic". Useful for supply chain verification and legal chain of custody.
+  - New assessment states: `VERIFIED_AUTHENTIC`, `LIKELY_AUTHENTIC`, `UNVERIFIED`, `INSUFFICIENT_DATA`, `AUTHENTICITY_COMPROMISED`
+  - Tracks verification chain (positive provenance evidence) and provenance gaps (missing verification)
+  - Confidence scoring based on weighted verification dimensions (C2PA, PRNU, metadata, quantisation)
+- **Authenticity Section in PDF Reports**: Court-ready reports now include authenticity assessment when running in authenticity mode.
+
+## [1.4.0] - 2025-12-22
+
+### Added
+- **Lip-Sync Analysis**: Deterministic audio-visual synchronisation detection for deepfake identification.
+  - Q15 fixed-point FFT for bit-exact reproducibility across platforms
+  - Formant extraction using LPC analysis
+  - Phoneme-to-viseme correlation mapping
+  - Temporal offset detection with configurable thresholds
+
+## [1.3.0] - 2025-12-21
+
+### Added
+- **Correlation Warnings**: Cross-dimensional analysis that identifies when findings from different forensic dimensions corroborate or contradict each other.
+  - Warns when metadata claims authenticity but visual analysis shows manipulation
+  - Highlights corroborating evidence across dimensions
+- **Voice/Audio Analysis**: Enhanced audio forensics with spectral discontinuity detection and ENF (Electric Network Frequency) analysis.
+
+### Fixed
+- Native DLL now optional in PyInstaller builds for cross-platform compatibility.
+- Video dimension properly included in `WuAnalysis.dimensions` and `to_dict()` output.
+
+## [1.2.0] - 2025-12-20
+
+### Added
+- **Native Video Forensics**: Integrated H.264/MJPEG bitstream analysis for container anomalies and codec-level splicing markers.
+- **Cross-Modal Analysis**: Correlates findings between audio and video streams to identify temporal inconsistencies.
+- **Standalone CLI Executable**: Windows users can now download `wu.exe` without requiring Python installation.
+- **GitHub Actions Release Workflow**: Automated PyPI publishing and executable builds.
+
+### Changed
+- Unified version management to `pyproject.toml`.
+- Reduced false positive rates across analysers:
+  - Metadata: Stripped metadata no longer flagged as suspicious (93% → 0% FPR)
+  - Lighting: Conservative thresholds for court admissibility (48% → 4% FPR)
+  - Copy-move: Stricter DCT similarity thresholds (36% → 7% FPR on CASIA)
+
 ## [1.1.0] - 2025-12-20
 
 ### Added
