@@ -198,6 +198,7 @@ def build_windows_msvc(src_dir: Path, out_dir: Path, obj_files: List[Path] = Non
         src_dir / "wu_asm_wrappers.c",
         src_dir / "wu_fft_q15.c",
         src_dir / "wu_lipsync.c",
+        src_dir / "wu_forensic_wrappers.c",
     ]
 
     # Base command
@@ -230,6 +231,7 @@ def build_windows_gcc(src_dir: Path, out_dir: Path, obj_files: List[Path] = None
         src_dir / "wu_asm_wrappers.c",
         src_dir / "wu_fft_q15.c",
         src_dir / "wu_lipsync.c",
+        src_dir / "wu_forensic_wrappers.c",
     ]
 
     cmd = [
@@ -274,6 +276,7 @@ def build_unix(src_dir: Path, out_dir: Path, compiler: str, obj_files: List[Path
         src_dir / "wu_asm_wrappers.c",
         src_dir / "wu_fft_q15.c",
         src_dir / "wu_lipsync.c",
+        src_dir / "wu_forensic_wrappers.c",
     ]
 
     cmd = [

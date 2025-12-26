@@ -203,6 +203,105 @@ def _load_library() -> bool:
             ctypes.c_int
         ]
 
+        # Forensic analysis functions
+        _lib.wu_qp_scan_horizontal.restype = ctypes.c_int
+        _lib.wu_qp_scan_horizontal.argtypes = [
+            ctypes.POINTER(ctypes.c_int8),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32),
+            ctypes.c_int
+        ]
+
+        _lib.wu_qp_frame_stats.restype = None
+        _lib.wu_qp_frame_stats.argtypes = [
+            ctypes.POINTER(ctypes.c_int8),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32)
+        ]
+
+        _lib.wu_qp_histogram.restype = None
+        _lib.wu_qp_histogram.argtypes = [
+            ctypes.POINTER(ctypes.c_int8),
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32)
+        ]
+
+        _lib.wu_qp_frame_discontinuities.restype = ctypes.c_int
+        _lib.wu_qp_frame_discontinuities.argtypes = [
+            ctypes.POINTER(ctypes.c_float),
+            ctypes.c_int,
+            ctypes.c_float,
+            ctypes.POINTER(ctypes.c_int32),
+            ctypes.c_int
+        ]
+
+        _lib.wu_mv_scan_horizontal.restype = ctypes.c_int
+        _lib.wu_mv_scan_horizontal.argtypes = [
+            ctypes.POINTER(ctypes.c_int16),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32),
+            ctypes.c_int
+        ]
+
+        _lib.wu_mv_field_stats.restype = None
+        _lib.wu_mv_field_stats.argtypes = [
+            ctypes.POINTER(ctypes.c_int16),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32),
+            ctypes.c_int
+        ]
+
+        _lib.wu_mv_coherence_score.restype = ctypes.c_int
+        _lib.wu_mv_coherence_score.argtypes = [
+            ctypes.POINTER(ctypes.c_int16),
+            ctypes.c_int,
+            ctypes.c_int
+        ]
+
+        _lib.wu_mv_detect_outliers.restype = ctypes.c_int
+        _lib.wu_mv_detect_outliers.argtypes = [
+            ctypes.POINTER(ctypes.c_int16),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32),
+            ctypes.c_int,
+            ctypes.c_int
+        ]
+
+        _lib.wu_scan_nal_units.restype = ctypes.c_int
+        _lib.wu_scan_nal_units.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.POINTER(ctypes.c_int32),
+            ctypes.c_int
+        ]
+
+        _lib.wu_analyse_nal_sequence.restype = ctypes.c_int
+        _lib.wu_analyse_nal_sequence.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32),
+            ctypes.c_int
+        ]
+
+        _lib.wu_count_epb.restype = ctypes.c_int
+        _lib.wu_count_epb.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int
+        ]
+
+        _lib.wu_entropy_stats.restype = None
+        _lib.wu_entropy_stats.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int32)
+        ]
+
         _available = True
         return True
 
@@ -738,3 +837,440 @@ def h264_filter_6tap(src: 'np.ndarray', stride: int, dst: 'np.ndarray', width: i
             f = int(src[y * stride + x + 3])
             dst[y * width + x] = a - 5*b + 20*c + 20*d - 5*e + f
 
+
+# ============================================================================
+# Forensic Analysis Functions
+# ============================================================================
+
+def qp_scan_horizontal(qp_row: 'np.ndarray', threshold: int = 8, max_out: int = 100):
+    """
+    Scan a row of QP values for sharp horizontal boundaries.
+
+    Args:
+        qp_row: Array of QP values (int8), one per macroblock
+        threshold: Minimum delta to flag as boundary (typically 8-12)
+        max_out: Maximum number of boundaries to record
+
+    Returns:
+        List of (mb_x, delta) tuples for each detected boundary
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    qp_row = np.ascontiguousarray(qp_row.ravel(), dtype=np.int8)
+    boundaries = np.zeros(max_out * 2, dtype=np.int32)
+
+    if _lib is not None:
+        count = _lib.wu_qp_scan_horizontal(
+            qp_row.ctypes.data_as(ctypes.POINTER(ctypes.c_int8)),
+            len(qp_row),
+            threshold,
+            boundaries.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+            max_out
+        )
+        return [(int(boundaries[i*2]), int(boundaries[i*2+1])) for i in range(count)]
+
+    # Fallback
+    result = []
+    for i in range(len(qp_row) - 1):
+        delta = abs(int(qp_row[i]) - int(qp_row[i + 1]))
+        if delta >= threshold and len(result) < max_out:
+            result.append((i, delta))
+    return result
+
+
+def qp_frame_stats(qp_map: 'np.ndarray', width_mbs: int, height_mbs: int):
+    """
+    Compute QP statistics for an entire frame.
+
+    Args:
+        qp_map: QP values for all macroblocks (row-major)
+        width_mbs: Frame width in macroblocks
+        height_mbs: Frame height in macroblocks
+
+    Returns:
+        Dict with keys: sum, min, max, count
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    qp_map = np.ascontiguousarray(qp_map.ravel(), dtype=np.int8)
+    stats = np.zeros(4, dtype=np.int32)
+
+    if _lib is not None:
+        _lib.wu_qp_frame_stats(
+            qp_map.ctypes.data_as(ctypes.POINTER(ctypes.c_int8)),
+            width_mbs,
+            height_mbs,
+            stats.ctypes.data_as(ctypes.POINTER(ctypes.c_int32))
+        )
+    else:
+        total = width_mbs * height_mbs
+        qp_u8 = qp_map.view(np.uint8)
+        stats[0] = int(np.sum(qp_u8[:total]))
+        stats[1] = int(np.min(qp_u8[:total]))
+        stats[2] = int(np.max(qp_u8[:total]))
+        stats[3] = total
+
+    return {
+        'sum': int(stats[0]),
+        'min': int(stats[1]),
+        'max': int(stats[2]),
+        'count': int(stats[3])
+    }
+
+
+def qp_histogram(qp_map: 'np.ndarray'):
+    """
+    Build histogram of QP values (52 bins, 0-51).
+
+    Args:
+        qp_map: QP values for all macroblocks
+
+    Returns:
+        np.ndarray of shape (52,) with counts
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    qp_map = np.ascontiguousarray(qp_map.ravel(), dtype=np.int8)
+    histogram = np.zeros(52, dtype=np.int32)
+
+    if _lib is not None:
+        _lib.wu_qp_histogram(
+            qp_map.ctypes.data_as(ctypes.POINTER(ctypes.c_int8)),
+            len(qp_map),
+            histogram.ctypes.data_as(ctypes.POINTER(ctypes.c_int32))
+        )
+    else:
+        for qp in qp_map:
+            if 0 <= qp <= 51:
+                histogram[qp] += 1
+
+    return histogram
+
+
+def qp_frame_discontinuities(avg_qp_history: 'np.ndarray', threshold: float = 10.0, max_out: int = 100):
+    """
+    Detect frames with large QP changes from previous frame.
+
+    Args:
+        avg_qp_history: Array of average QP per frame
+        threshold: Minimum delta to flag (typically 10-15)
+        max_out: Maximum discontinuities to record
+
+    Returns:
+        List of frame indices where discontinuities occur
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    avg_qp_history = np.ascontiguousarray(avg_qp_history.ravel(), dtype=np.float32)
+    discontinuities = np.zeros(max_out, dtype=np.int32)
+
+    if _lib is not None:
+        count = _lib.wu_qp_frame_discontinuities(
+            avg_qp_history.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+            len(avg_qp_history),
+            threshold,
+            discontinuities.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+            max_out
+        )
+        return [int(discontinuities[i]) for i in range(count)]
+
+    # Fallback
+    result = []
+    for i in range(1, len(avg_qp_history)):
+        delta = abs(avg_qp_history[i] - avg_qp_history[i - 1])
+        if delta >= threshold and len(result) < max_out:
+            result.append(i)
+    return result
+
+
+def mv_scan_horizontal(mv_row: 'np.ndarray', threshold_sq: int = 1024, max_out: int = 100):
+    """
+    Scan a row of motion vectors for spatial discontinuities.
+
+    Args:
+        mv_row: Array of MVs as [mvx0, mvy0, mvx1, mvy1, ...] (int16)
+        threshold_sq: Squared magnitude threshold (e.g. 1024 = 32^2)
+        max_out: Maximum discontinuities to record
+
+    Returns:
+        List of (mb_x, magnitude_sq) tuples
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    mv_row = np.ascontiguousarray(mv_row.ravel(), dtype=np.int16)
+    width_mbs = len(mv_row) // 2
+    discontinuities = np.zeros(max_out * 2, dtype=np.int32)
+
+    if _lib is not None:
+        count = _lib.wu_mv_scan_horizontal(
+            mv_row.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
+            width_mbs,
+            threshold_sq,
+            discontinuities.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+            max_out
+        )
+        return [(int(discontinuities[i*2]), int(discontinuities[i*2+1])) for i in range(count)]
+
+    # Fallback
+    result = []
+    for i in range(width_mbs - 1):
+        dx = int(mv_row[i * 2]) - int(mv_row[(i + 1) * 2])
+        dy = int(mv_row[i * 2 + 1]) - int(mv_row[(i + 1) * 2 + 1])
+        mag_sq = dx * dx + dy * dy
+        if mag_sq >= threshold_sq and len(result) < max_out:
+            result.append((i, mag_sq))
+    return result
+
+
+def mv_coherence_score(mv_field: 'np.ndarray', width_mbs: int, height_mbs: int) -> int:
+    """
+    Compute MV field coherence score.
+
+    Args:
+        mv_field: All MVs as [mvx, mvy] pairs (row-major, int16)
+        width_mbs: Frame width in macroblocks
+        height_mbs: Frame height in macroblocks
+
+    Returns:
+        Coherence score (0-100, higher = more coherent)
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    mv_field = np.ascontiguousarray(mv_field.ravel(), dtype=np.int16)
+
+    if _lib is not None:
+        return _lib.wu_mv_coherence_score(
+            mv_field.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
+            width_mbs,
+            height_mbs
+        )
+
+    # Simplified fallback
+    if width_mbs < 3 or height_mbs < 3:
+        return 100
+
+    total_gradient = 0
+    count = 0
+    for y in range(1, height_mbs - 1):
+        for x in range(1, width_mbs - 1):
+            idx = (y * width_mbs + x) * 2
+            mvx, mvy = int(mv_field[idx]), int(mv_field[idx + 1])
+            # Check left neighbour
+            dx = mvx - int(mv_field[idx - 2])
+            dy = mvy - int(mv_field[idx - 1])
+            total_gradient += dx * dx + dy * dy
+            count += 1
+
+    if count == 0:
+        return 100
+    avg = total_gradient // count
+    normalised = min(avg // 100, 100)
+    return 100 - normalised
+
+
+def mv_detect_outliers(mv_field: 'np.ndarray', width_mbs: int, height_mbs: int,
+                       threshold: int = 2500, max_out: int = 100):
+    """
+    Detect MV outliers that deviate from local neighbourhood.
+
+    Args:
+        mv_field: All MVs as [mvx, mvy] pairs (row-major, int16)
+        width_mbs: Frame width in macroblocks
+        height_mbs: Frame height in macroblocks
+        threshold: Deviation squared threshold (e.g. 2500 = 50^2)
+        max_out: Maximum outliers to record
+
+    Returns:
+        List of (mb_x, mb_y, deviation_sq) tuples
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    mv_field = np.ascontiguousarray(mv_field.ravel(), dtype=np.int16)
+    outliers = np.zeros(max_out * 3, dtype=np.int32)
+
+    if _lib is not None:
+        count = _lib.wu_mv_detect_outliers(
+            mv_field.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
+            width_mbs,
+            height_mbs,
+            outliers.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+            threshold,
+            max_out
+        )
+        return [(int(outliers[i*3]), int(outliers[i*3+1]), int(outliers[i*3+2]))
+                for i in range(count)]
+
+    # Fallback returns empty for simplicity
+    return []
+
+
+def scan_nal_units(buffer: bytes, max_nals: int = 1000):
+    """
+    Scan buffer for NAL start codes and extract NAL type sequence.
+
+    Args:
+        buffer: H.264 bitstream data
+        max_nals: Maximum NALs to record
+
+    Returns:
+        List of (nal_type, byte_offset) tuples
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    buf_arr = np.frombuffer(buffer, dtype=np.uint8)
+    nal_types = np.zeros(max_nals, dtype=np.uint8)
+    nal_offsets = np.zeros(max_nals, dtype=np.int32)
+
+    if _lib is not None:
+        count = _lib.wu_scan_nal_units(
+            buf_arr.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)),
+            len(buf_arr),
+            nal_types.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)),
+            nal_offsets.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+            max_nals
+        )
+        return [(int(nal_types[i]), int(nal_offsets[i])) for i in range(count)]
+
+    # Fallback
+    result = []
+    i = 0
+    while i < len(buf_arr) - 4 and len(result) < max_nals:
+        if buf_arr[i] == 0 and buf_arr[i + 1] == 0:
+            if buf_arr[i + 2] == 1:
+                nal_type = buf_arr[i + 3] & 0x1F
+                result.append((int(nal_type), i))
+                i += 3
+            elif buf_arr[i + 2] == 0 and buf_arr[i + 3] == 1 and i + 4 < len(buf_arr):
+                nal_type = buf_arr[i + 4] & 0x1F
+                result.append((int(nal_type), i))
+                i += 4
+            else:
+                i += 1
+        else:
+            i += 1
+    return result
+
+
+def analyse_nal_sequence(nal_types, max_anomalies: int = 100):
+    """
+    Analyse NAL type sequence for structural anomalies.
+
+    Anomaly codes:
+        1 = Missing SPS before first slice
+        2 = Missing PPS before first slice
+        3 = SPS after slice (potential splice)
+        4 = PPS after slice (potential splice)
+        5 = Non-IDR slice without preceding IDR
+        6 = Invalid NAL type (>31)
+        7 = Consecutive IDRs (unusual)
+
+    Args:
+        nal_types: Sequence of NAL types (list or array)
+        max_anomalies: Maximum anomalies to record
+
+    Returns:
+        List of (index, anomaly_code) tuples
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    nal_arr = np.ascontiguousarray(nal_types, dtype=np.uint8)
+    anomalies = np.zeros(max_anomalies * 2, dtype=np.int32)
+
+    if _lib is not None:
+        count = _lib.wu_analyse_nal_sequence(
+            nal_arr.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)),
+            len(nal_arr),
+            anomalies.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),
+            max_anomalies
+        )
+        return [(int(anomalies[i*2]), int(anomalies[i*2+1])) for i in range(count)]
+
+    # Simplified fallback
+    return []
+
+
+def count_epb(buffer: bytes) -> int:
+    """
+    Count emulation prevention bytes (00 00 03 sequences).
+
+    Args:
+        buffer: NAL data
+
+    Returns:
+        Number of EPB sequences found
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    buf_arr = np.frombuffer(buffer, dtype=np.uint8)
+
+    if _lib is not None:
+        return _lib.wu_count_epb(
+            buf_arr.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)),
+            len(buf_arr)
+        )
+
+    # Fallback
+    count = 0
+    i = 0
+    while i < len(buf_arr) - 2:
+        if buf_arr[i] == 0 and buf_arr[i + 1] == 0 and buf_arr[i + 2] == 3:
+            count += 1
+            i += 3
+        else:
+            i += 1
+    return count
+
+
+def entropy_stats(buffer: bytes):
+    """
+    Compute entropy statistics on slice data.
+
+    Args:
+        buffer: Slice data after header
+
+    Returns:
+        Dict with keys: zero_count, one_count, byte_sum, entropy_est
+    """
+    if not HAS_NUMPY:
+        raise RuntimeError("NumPy required")
+
+    buf_arr = np.frombuffer(buffer, dtype=np.uint8)
+    stats = np.zeros(4, dtype=np.int32)
+
+    if _lib is not None:
+        _lib.wu_entropy_stats(
+            buf_arr.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)),
+            len(buf_arr),
+            stats.ctypes.data_as(ctypes.POINTER(ctypes.c_int32))
+        )
+    else:
+        # Fallback
+        zero_count = 0
+        one_count = 0
+        byte_sum = 0
+        for b in buf_arr:
+            byte_sum += int(b)
+            ones = bin(b).count('1')
+            one_count += ones
+            zero_count += 8 - ones
+        stats[0] = zero_count
+        stats[1] = one_count
+        stats[2] = byte_sum
+        stats[3] = 50  # Default estimate
+
+    return {
+        'zero_count': int(stats[0]),
+        'one_count': int(stats[1]),
+        'byte_sum': int(stats[2]),
+        'entropy_est': int(stats[3])
+    }
