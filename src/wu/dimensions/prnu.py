@@ -682,9 +682,19 @@ class PRNUAnalyzer:
 
 
 # =============================================================================
-# NATIVE IMPLEMENTATION STUBS
+# NATIVE IMPLEMENTATION ROADMAP
 # =============================================================================
-# The following are stub signatures for C/Cython implementations.
+# The following are reference implementations for future C/Cython ports.
+# Priority: HIGH - these are the hot paths identified by profiling.
+#
+# To implement:
+#   1. Create prnu_native.pyx with these signatures
+#   2. Update imports to use native version when available
+#   3. Benchmark against pure Python baseline
+#
+# Until implemented, the Python versions above are used.
+# See OPTIMIZE: markers throughout this file for specific bottlenecks.
+# =============================================================================
 
 """
 # cython: language_level=3
