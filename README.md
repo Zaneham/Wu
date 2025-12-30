@@ -259,4 +259,4 @@ contact me at zanehambly@gmail.com
 
 ## License
 
-MIT
+Apache 2.0 - See [LICENSE](LICENSE) for details.
